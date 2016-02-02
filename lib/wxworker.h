@@ -37,7 +37,7 @@ struct wx_conn_s {
 };
 
 struct wx_buf_chain_s {
-    struct wx_buf_s* buf;
+    struct wx_buf_s buf;
     struct wx_buf_chain_s* next;
     void (*cleanup)(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* out_bufc, int status);
 };

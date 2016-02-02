@@ -22,7 +22,7 @@ static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
 
     if (i == 1) {
         for (;!wx_conn->stopwrite;) {
-            n = write(ww->fd, wx_conn->out_bufc->buf->base, wx_conn->out_bufc->buf->size);
+            n = write(ww->fd, wx_conn->out_bufc->buf.base, wx_conn->out_bufc->buf.size);
             if (n < 0) {
                 if (errno == EAGAIN) {
                     errno = 0; // reset it
@@ -34,9 +34,9 @@ static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
                 }
                 break;
             }
-            wx_conn->out_bufc->buf->base += n;
-            wx_conn->out_bufc->buf->size -= n;
-            if (wx_conn->out_bufc->buf->size == 0) {
+            wx_conn->out_bufc->buf.base += n;
+            wx_conn->out_bufc->buf.size -= n;
+            if (wx_conn->out_bufc->buf.size == 0) {
                 if (wx_conn->out_bufc->cleanup) {
                     wx_conn->out_bufc->cleanup(wx_conn, wx_conn->out_bufc, 0);
                 }
@@ -49,8 +49,8 @@ static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
         for (;!wx_conn->stopwrite && wx_conn->out_bufc;) {
             bc = wx_conn->out_bufc;
             for (i = 0; bc ;) {
-                iov[i].iov_base = bc->buf->base;
-                iov[i].iov_len = bc->buf->size;
+                iov[i].iov_base = bc->buf.base;
+                iov[i].iov_len = bc->buf.size;
                 bc = bc->next;
                 i++;
             }
@@ -70,14 +70,14 @@ static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
                 break;
             } else {
                 for (;wx_conn->out_bufc;) {
-                    n -= wx_conn->out_bufc->buf->size;
+                    n -= wx_conn->out_bufc->buf.size;
                     if (n < 0) {
-                        wx_conn->out_bufc->buf->base += (wx_conn->out_bufc->buf->size + n);
-                        wx_conn->out_bufc->buf->size = -n;
+                        wx_conn->out_bufc->buf.base += (wx_conn->out_bufc->buf.size + n);
+                        wx_conn->out_bufc->buf.size = -n;
                         break;
                     }else{
-                        wx_conn->out_bufc->buf->base += wx_conn->out_bufc->buf->size;
-                        wx_conn->out_bufc->buf->size = 0;
+                        wx_conn->out_bufc->buf.base += wx_conn->out_bufc->buf.size;
+                        wx_conn->out_bufc->buf.size = 0;
                         bc = wx_conn->out_bufc;
                         wx_conn->out_bufc = wx_conn->out_bufc->next;
                         if (bc->cleanup) {
@@ -111,7 +111,7 @@ void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* ou
     if (queue_is_empty) {
         if (NULL == wx_conn->out_bufc->next) {
             for (;;) {
-                n = write(fd, wx_conn->out_bufc->buf->base, wx_conn->out_bufc->buf->size);
+                n = write(fd, wx_conn->out_bufc->buf.base, wx_conn->out_bufc->buf.size);
                 if (n < 0) {
                     if (errno == EAGAIN) {
                         if (!ev_is_active(ww)) {
@@ -126,9 +126,9 @@ void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* ou
                     }
                     break;
                 } else {
-                    wx_conn->out_bufc->buf->base += n;
-                    wx_conn->out_bufc->buf->size -= n;
-                    if (wx_conn->out_bufc->buf->size == 0) {
+                    wx_conn->out_bufc->buf.base += n;
+                    wx_conn->out_bufc->buf.size -= n;
+                    if (wx_conn->out_bufc->buf.size == 0) {
                         if (wx_conn->out_bufc->cleanup) {
                             wx_conn->out_bufc->cleanup(wx_conn, wx_conn->out_bufc, 0);
                         }
@@ -148,8 +148,8 @@ void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* ou
             for (;!wx_conn->stopwrite && wx_conn->out_bufc;) {
                 bc = wx_conn->out_bufc;
                 for (i = 0; bc ;) {
-                    iov[i].iov_base = bc->buf->base;
-                    iov[i].iov_len = bc->buf->size;
+                    iov[i].iov_base = bc->buf.base;
+                    iov[i].iov_len = bc->buf.size;
                     bc = bc->next;
                     i++;
                 }
@@ -172,14 +172,14 @@ void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* ou
                     break;
                 } else {
                     for (;wx_conn->out_bufc;) {
-                        n -= wx_conn->out_bufc->buf->size;
+                        n -= wx_conn->out_bufc->buf.size;
                         if (n < 0) {
-                            wx_conn->out_bufc->buf->base += (wx_conn->out_bufc->buf->size + n);
-                            wx_conn->out_bufc->buf->size = -n;
+                            wx_conn->out_bufc->buf.base += (wx_conn->out_bufc->buf.size + n);
+                            wx_conn->out_bufc->buf.size = -n;
                             break;
                         }else{
-                            wx_conn->out_bufc->buf->base += wx_conn->out_bufc->buf->size;
-                            wx_conn->out_bufc->buf->size = 0;
+                            wx_conn->out_bufc->buf.base += wx_conn->out_bufc->buf.size;
+                            wx_conn->out_bufc->buf.size = 0;
                             bc = wx_conn->out_bufc;
                             wx_conn->out_bufc = wx_conn->out_bufc->next;
                             if (bc->cleanup) {

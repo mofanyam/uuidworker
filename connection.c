@@ -24,7 +24,7 @@ int connections_alloc(struct wx_worker_s* wk, uint32_t count) {
     for (i=0; i<count; i++) {
         wx_timer_init(wk, &free_conns[i].close_timer);
         wx_conn_init(wk, &free_conns[i].wx_conn);
-        free_conns[i].next = (i+1)<count ? (struct connection_s*)&free_conns[i+1] : NULL;
+        free_conns[i].next = (i+1)<count ? &free_conns[i+1] : NULL;
     }
 
     return 0;
@@ -44,6 +44,7 @@ struct connection_s* connection_get() {
         tmp->inuse = 1;
         tmp->fd = -1;
         tmp->recvlen = 0;
+        tmp->recvbuf = NULL;
     }
     return tmp;
 }
@@ -55,10 +56,6 @@ void connection_put(struct connection_s* conn) {
     if (conn->fd > 0) {
         close(conn->fd);
     }
-    if (!free_conns) {
-        free_conns = conn;
-    } else {
-        conn->next = free_conns;
-        free_conns = conn;
-    }
+    conn->next = free_conns;
+    free_conns = conn;
 }
