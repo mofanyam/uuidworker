@@ -43,23 +43,22 @@ struct wx_buf_s* alloc_cb(struct wx_conn_s* wx_conn, size_t suggested) {
     return conn->recvbuf;
 }
 
-void cleanup(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* out_bufc, int status) {
-    wx_write_stop(wx_conn);
-
-    struct connection_s* conn = (struct connection_s*)wx_conn;
-    connection_put(conn);
-}
-void cleanup_free(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* out_bufc, int status) {
-    free(out_bufc);
-}
 void cleanup_put_buf(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* out_bufc, int status) {
     buf_pool_put((struct connection_buf_s*)out_bufc);
+
+    struct connection_s* conn = (struct connection_s*)wx_conn;
+    if (conn->keepalivems == 0) {
+        connection_close(conn, 0);
+    } else if (conn->keepalivems > 0) {
+        if (wx_timer_is_active(&conn->close_timer)) {
+            wx_timer_stop(&conn->close_timer);
+        }
+        wx_timer_start(&conn->close_timer, (uint32_t)conn->keepalivems, timer_cb_close);
+    }
 }
 
 void do_request(struct connection_s* conn, const char* bufbase, size_t buflen) {
-//    if (0 != strncmp(bufbase, "get uuid\n", 9)) {
-//
-//    }
+    conn->keepalivems = *(int*)bufbase;
 
     struct connection_buf_s* cbuf = buf_pool_get();
     if (cbuf == NULL) {
@@ -104,7 +103,7 @@ void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t nread) {
     struct connection_s* conn = (struct connection_s*)wx_conn;
     if (nread <= 0) {
         if (nread==0 || errno != EAGAIN) {
-            connection_close(conn, -11);
+            connection_close(conn, nread);
         }
         return;
     }
@@ -120,7 +119,7 @@ void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t nread) {
         return;
     }
 
-    int i,lastlnpos = -1;
+    int i,lastlnpos;
     for(;;) {
         lastlnpos = find_first_ln(b.base, b.size);
         if (lastlnpos == -1) {
@@ -146,7 +145,9 @@ void accept_cb(struct wx_worker_s* wk, int revents) {
         wx_err("no more free connections");
         return;
     }
-    
+
+    wx_timer_init(conn->wx_conn.worker, &conn->close_timer);
+
     int cfd = accept(wk->listen_fd, NULL, 0);
     if (cfd < 0) {
         if (errno == EAGAIN) {

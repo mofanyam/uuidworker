@@ -12,6 +12,7 @@
 struct connection_s {
     struct wx_conn_s wx_conn;
     struct wx_timer_s close_timer;
+    int keepalivems;
     struct connection_s* next;
     int fd;
     int inuse;

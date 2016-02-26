@@ -45,6 +45,7 @@ struct connection_s* connection_get() {
         tmp->fd = -1;
         tmp->recvlen = 0;
         tmp->recvbuf = NULL;
+        tmp->keepalivems = -1;
     }
     return tmp;
 }

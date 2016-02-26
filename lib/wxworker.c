@@ -354,6 +354,9 @@ void wx_timer_stop(struct wx_timer_s* wx_timer) {
         wx_timer->timer_cb = NULL;
     }
 }
+int wx_timer_is_active(struct wx_timer_s* wx_timer) {
+    return ev_is_active(&wx_timer->ev_timer);
+}
 
 void wx_fire_outbuf_chain_cleanup(struct wx_conn_s* wx_conn, int status) {
     struct wx_buf_chain_s* tmp;

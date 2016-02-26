@@ -18,6 +18,7 @@ class WxClient{
 	}
 
 	protected function send($message , $keepalive) {
+		$message = pack('V', $keepalive) . $message;
 		fwrite($this->fp, $message);
 	}
 
@@ -51,6 +52,6 @@ $c = new WxClient;
 
 $c->connect('127.0.0.1', 9527);
 
-echo $c->request("abcd\n");
+echo $c->request("\n", -1);
 
 $c->close();
