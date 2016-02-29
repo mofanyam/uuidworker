@@ -349,7 +349,7 @@ void wx_timer_start(struct wx_timer_s* wx_timer, uint32_t timeout_ms, void (*tim
     }
 }
 void wx_timer_stop(struct wx_timer_s* wx_timer) {
-    if (!ev_is_active(&wx_timer->ev_timer)) {
+    if (ev_is_active(&wx_timer->ev_timer)) {
         ev_timer_stop(wx_timer->loop, &wx_timer->ev_timer);
         wx_timer->timer_cb = NULL;
     }
