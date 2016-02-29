@@ -88,5 +88,10 @@ int wx_timer_is_active(struct wx_timer_s* wx_timer);
 
 void wx_fire_outbuf_chain_cleanup(struct wx_conn_s* wx_conn, int status);
 
+#define wx_buf_chain_init(bc, cleanup_cb) do{                   \
+(bc)->cleanup = (cleanup_cb);                                   \
+(bc)->next = NULL;                                              \
+(bc)->buf.base = (char*)(bc) + sizeof(struct wx_buf_chain_s);   \
+}while(0)
 
 #endif //WORKER_WXWORKER_H
