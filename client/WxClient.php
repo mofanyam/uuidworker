@@ -17,24 +17,22 @@ class WxClient{
 		}
 	}
 
-	protected function send($message , $keepalive) {
-		$message = pack('V', $keepalive) . $message;
+	public function send($message) {
 		fwrite($this->fp, $message);
 	}
 
-	protected function recv() {
+	public function recv() {
 		$s = fread($this->fp, 4096);
 		return $s;
 	}
 
-	public function request($message, $keepalive = 2000){
-		$this->send($message, $keepalive);
+	public function request($message){
+		$this->send($message);
 		return $this->recv();
 	}
 
 	public function close() {
 		if (is_resource($this->fp)) {
-			//$this->send('', 0);//server will close the connection Immediately
 			fclose($this->fp);
 			$this->fp = null;
 		}
@@ -50,8 +48,13 @@ class WxClient{
 
 $c = new WxClient;
 
-$c->connect('127.0.0.1', 9527);
+$c->connect('127.0.0.1', isset($argv[1])?$argv[1]:9527);
 
-echo $c->request("\n", -1);
 
+$c->send("keep-alive:2000\r\n\r\n");
+echo $c->recv();
+$c->send("keep-alive:2000\r\n\r\n");
+echo $c->recv();
+sleep(5);
 $c->close();
+

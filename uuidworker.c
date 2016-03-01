@@ -15,6 +15,9 @@
 
 
 void connection_close(struct connection_s* conn, int statue) {
+    if (!conn->inuse) {
+        return;
+    }
     wx_timer_stop(&conn->close_timer);
     wx_read_stop(&conn->wx_conn);
     wx_write_stop(&conn->wx_conn);
@@ -57,9 +60,7 @@ void cleanup_put_buf(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* out_bufc,
     }
 }
 
-void do_request(struct connection_s* conn, const char* bufbase, size_t buflen) {
-    conn->keepalivems = *(int*)bufbase;
-
+void do_request(struct connection_s* conn) {
     struct connection_buf_s* cbuf = buf_pool_get();
     if (cbuf == NULL) {
         wx_err("no more free buf in buf pool");
@@ -68,9 +69,7 @@ void do_request(struct connection_s* conn, const char* bufbase, size_t buflen) {
     }
 
     struct wx_buf_chain_s* bc = (struct wx_buf_chain_s*)cbuf;
-    bc->cleanup = cleanup_put_buf;
-    bc->next = NULL;
-    bc->buf.base = (char*)bc + sizeof(struct wx_buf_chain_s);
+    wx_buf_chain_init(bc, cleanup_put_buf);
 
     int64_t uuid = create_uuid();
 
@@ -78,6 +77,16 @@ void do_request(struct connection_s* conn, const char* bufbase, size_t buflen) {
     bc->buf.size = strlen(bc->buf.base);
 
     wx_write_start(&conn->wx_conn, conn->fd, bc);
+}
+
+void do_line(struct connection_s* conn, const char* bufbase, size_t buflen) {
+    if (buflen > 11 && 0 == strncasecmp(bufbase, "keep-alive:", 11)) {
+        conn->keepalivems = atoi(bufbase+11);
+    }
+
+    if (0 == strncmp(bufbase, "\r\n", 2)) {
+        do_request(conn);
+    }
 }
 
 int find_first_ln(char* ptr, size_t size) {
@@ -101,10 +110,15 @@ int find_last_ln(char* ptr, size_t size) {
 
 void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t nread) {
     struct connection_s* conn = (struct connection_s*)wx_conn;
-    if (nread <= 0) {
-        if (nread==0 || errno != EAGAIN) {
+    if (nread < 0) {
+        if (errno == EAGAIN) {
+            errno = 0;
+        } else {
             connection_close(conn, nread);
         }
+        return;
+    } else if (nread==0) {
+        connection_close(conn, 0);
         return;
     }
 
@@ -112,30 +126,30 @@ void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t nread) {
     conn->recvbuf->base += nread;
 
     char* origin_base = (char*)buf + sizeof(struct connection_buf_s);
-    struct wx_buf_s b = {.base=origin_base, .size=POOL_BUF_SIZE-conn->recvbuf->size};
+    struct wx_buf_s databuf = {.base=origin_base, .size=POOL_BUF_SIZE-conn->recvbuf->size};
 
-    if (conn->recvbuf->size == 0 && -1 == find_last_ln(origin_base, POOL_BUF_SIZE-conn->recvbuf->size)) {// 这行也太长了吧！
+    if (conn->recvbuf->size == 0 && -1 == find_last_ln(origin_base, POOL_BUF_SIZE-conn->recvbuf->size)) {
         connection_close(conn, -12);
         return;
     }
 
     int i,lastlnpos;
     for(;;) {
-        lastlnpos = find_first_ln(b.base, b.size);
+        lastlnpos = find_first_ln(databuf.base, databuf.size);
         if (lastlnpos == -1) {
-            if (origin_base != b.base) {
-                for(i=0;i<b.size;i++) {
-                    origin_base[i] = b.base[i];
+            if (origin_base != databuf.base) {
+                for(i=0;i<databuf.size;i++) {
+                    origin_base[i] = databuf.base[i];
                 }
                 conn->recvbuf->base = origin_base;
-                conn->recvbuf->size = b.size;
+                conn->recvbuf->size = POOL_BUF_SIZE-databuf.size;
             }
             break;
         }
         lastlnpos++;
-        do_request(conn, b.base, (size_t)lastlnpos);
-        b.base += lastlnpos;
-        b.size -= lastlnpos;
+        do_line(conn, databuf.base, (size_t)lastlnpos);
+        databuf.base += lastlnpos;
+        databuf.size -= lastlnpos;
     }
 }
 

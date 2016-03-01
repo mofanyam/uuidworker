@@ -19,12 +19,19 @@ int buf_pool_alloc(size_t buflen, size_t size) {
         return -1;
     }
     uuid_buf_chains = bs;
+    char* tmp;
     size_t i;
     for(i=0; i<size; i++) {
-        bs[i].inuse = 0;
-        bs[i].buf.base = (char*)&bs[i] + sizeof(struct connection_buf_s);
-        bs[i].buf.size = buflen;
-        bs[i].next = (i+1)<size ? &bs[i+1] : NULL;
+        bs->inuse = 0;
+        bs->buf.base = (char*)bs+sizeof(struct connection_buf_s);
+        bs->buf.size = buflen;
+        if ((i+1) == size) {
+            bs->next = NULL;
+        } else {
+            tmp = (char*)bs+sizeof(struct connection_buf_s)+buflen;
+            bs->next = (struct connection_buf_s*)tmp;
+            bs = (struct connection_buf_s*)tmp;
+        }
     }
     return 0;
 }
