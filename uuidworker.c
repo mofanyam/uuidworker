@@ -48,6 +48,7 @@ struct wx_buf_s* alloc_cb(struct wx_conn_s* wx_conn, size_t suggested) {
 
 void cleanup_put_buf(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* out_bufc, int status) {
     buf_pool_put((struct connection_buf_s*)out_bufc);
+    out_bufc->cleanup = NULL;
 
     struct connection_s* conn = (struct connection_s*)wx_conn;
     if (conn->keepalivems == 0) {
@@ -82,6 +83,8 @@ void do_request(struct connection_s* conn) {
 void do_line(struct connection_s* conn, const char* bufbase, size_t buflen) {
     if (buflen > 11 && 0 == strncasecmp(bufbase, "keep-alive:", 11)) {
         conn->keepalivems = atoi(bufbase+11);
+    }else{
+        conn->keepalivems = 0;
     }
 
     if (0 == strncmp(bufbase, "\r\n", 2)) {
