@@ -10,12 +10,13 @@
 
 
 static struct connection_s* free_conns = NULL;
+static struct connection_s* _free_conns;
 
 
 int connections_alloc(struct wx_worker_s* wk, uint32_t count) {
     assert(free_conns == NULL);
     assert(count > 0);
-    free_conns = (struct connection_s*)malloc(sizeof(struct connection_s) * count);
+    _free_conns = free_conns = (struct connection_s*)malloc(sizeof(struct connection_s) * count);
     if (free_conns==NULL) {
         return -1;
     }
@@ -30,9 +31,9 @@ int connections_alloc(struct wx_worker_s* wk, uint32_t count) {
     return 0;
 }
 void connections_free() {
-    if (free_conns) {
-        free(free_conns);
-        free_conns = NULL;
+    if (_free_conns) {
+        free(_free_conns);
+        _free_conns = NULL;
     }
 }
 struct connection_s* connection_get() {

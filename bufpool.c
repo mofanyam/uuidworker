@@ -8,6 +8,7 @@
 
 
 static struct connection_buf_s* uuid_buf_chains = NULL;
+static struct connection_buf_s* _uuid_buf_chains;
 static size_t uuid_buf_len = 0;
 
 
@@ -18,7 +19,7 @@ int buf_pool_alloc(size_t buflen, size_t size) {
     if (NULL == bs) {
         return -1;
     }
-    uuid_buf_chains = bs;
+    _uuid_buf_chains = uuid_buf_chains = bs;
     char* tmp;
     size_t i;
     for(i=0; i<size; i++) {
@@ -37,9 +38,9 @@ int buf_pool_alloc(size_t buflen, size_t size) {
 }
 
 void buf_pool_free() {
-    if (uuid_buf_chains) {
-        free(uuid_buf_chains);
-        uuid_buf_chains = NULL;
+    if (_uuid_buf_chains) {
+        free(_uuid_buf_chains);
+        _uuid_buf_chains = NULL;
         uuid_buf_len = 0;
     }
 }
