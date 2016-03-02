@@ -46,7 +46,7 @@ struct connection_s* connection_get() {
         tmp->fd = -1;
         tmp->recvlen = 0;
         tmp->recvbuf = NULL;
-        tmp->keepalivems = -1;
+        tmp->keepalivems = 0; //默认完成一个请求之后立即关闭链接
     }
     return tmp;
 }

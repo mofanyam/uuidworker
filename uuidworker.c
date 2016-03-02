@@ -83,8 +83,6 @@ void do_request(struct connection_s* conn) {
 void do_line(struct connection_s* conn, const char* bufbase, size_t buflen) {
     if (buflen > 11 && 0 == strncasecmp(bufbase, "keep-alive:", 11)) {
         conn->keepalivems = atoi(bufbase+11);
-    }else{
-        conn->keepalivems = 0;
     }
 
     if (0 == strncmp(bufbase, "\r\n", 2)) {
