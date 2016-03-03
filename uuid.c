@@ -50,9 +50,9 @@ int uuid_init(int worker_id, int worker_count) {
     return 0;
 }
 
-int64_t uuid_create() {
+uint64_t uuid_create() {
     struct uuid_s uuid;
-    uuid.gpid = uuid_gpid; // max = (1<<10)-1 = 1023
+    uuid.gpid = (uint64_t)uuid_gpid; // max = (1<<10)-1 = 1023
     uuid.count = 1;
 
     struct timeval tv;
@@ -65,9 +65,7 @@ int64_t uuid_create() {
 
     uuid_last = uuid;
 
-    int64_t r = uuid.count;
-    r |= (uuid.ms<<13);
-    r |= ((int64_t)uuid.gpid<<54);
+    uint64_t r = uuid.ms<<22 | uuid.count<<9 | uuid.gpid;
 
     return r;
 }

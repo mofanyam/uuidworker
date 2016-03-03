@@ -73,10 +73,9 @@ void do_request(struct connection_s* conn) {
     struct wx_buf_chain_s* bc = (struct wx_buf_chain_s*)cbuf;
     wx_buf_chain_init(bc, cleanup_put_buf);
 
-    int64_t uuid = uuid_create();
+    uint64_t uuid = uuid_create();//
 
-    sprintf(bc->buf.base, "%lld\n", uuid);
-    bc->buf.size = strlen(bc->buf.base);
+    bc->buf.size = (size_t)sprintf(bc->buf.base, "%llu\n", uuid);
 
     wx_write_start(&conn->wx_conn, conn->fd, bc);
 }

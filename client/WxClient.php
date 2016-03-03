@@ -28,7 +28,11 @@ class WxClient{
 
 	public function request($message){
 		$this->send($message);
-		return $this->recv();
+		$s = '';
+		while (false===strpos($s, "\n")) {
+			$s .= $this->recv();
+		}
+		return $s;
 	}
 
 	public function close() {
@@ -55,6 +59,7 @@ $c->send("keep-alive:2000\r\n\r\n");
 echo $c->recv();
 $c->send("keep-alive:2000\r\n\r\n");
 echo $c->recv();
-sleep(5);
+
+echo $c->request("keep-alive:2000\r\n\r\n");
 $c->close();
 
