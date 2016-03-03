@@ -2,8 +2,8 @@
 // Created by mofan on 2/15/16.
 //
 
-#ifndef UUIDWORKER_TRY_H
-#define UUIDWORKER_TRY_H
+#ifndef WXWORKER_WXDO_H
+#define WXWORKER_WXDO_H
 
 
 
@@ -30,4 +30,4 @@ ETRY;
 
 #define wx_break THROW
 
-#endif //UUIDWORKER_TRY_H
+#endif //WXWORKER_WXDO_H

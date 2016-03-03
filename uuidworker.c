@@ -8,6 +8,7 @@
 #include "connection.h"
 #include "bufpool.h"
 #include "uuid.h"
+#include "lib/defs.h"
 
 
 #define POOL_BUF_SIZE 4096
@@ -72,7 +73,7 @@ void do_request(struct connection_s* conn) {
     struct wx_buf_chain_s* bc = (struct wx_buf_chain_s*)cbuf;
     wx_buf_chain_init(bc, cleanup_put_buf);
 
-    int64_t uuid = create_uuid();
+    int64_t uuid = uuid_create();
 
     sprintf(bc->buf.base, "%lld\n", uuid);
     bc->buf.size = strlen(bc->buf.base);
@@ -199,11 +200,43 @@ int get_listen_fd() {
     return listen_fd;
 }
 
+int get_worker_id() {
+    int wkr_id = -1;
+    char* evnptr = getenv("WKR_ID");
+    if (evnptr) {
+        wkr_id = atoi(evnptr);
+    }
+    return wkr_id;
+}
+
+int get_worker_count() {
+    int wkr_count = -1;
+    char* evnptr = getenv("WKR_COUNT");
+    if (evnptr) {
+        wkr_count = atoi(evnptr);
+    }
+    return wkr_count;
+}
 
 int main(int argc, char** argv) {
     int listen_fd = get_listen_fd();
     if (listen_fd < 0) {
         wx_err("listen_fd < 0");
+        return EXIT_FAILURE;
+    }
+
+    int worker_id = get_worker_id();
+    if (worker_id < 0) {
+        wx_err("worker_id < 0");
+        return EXIT_FAILURE;
+    }
+    int worker_count = get_worker_count();
+    if (worker_count < 0) {
+        wx_err("worker_count < 0");
+        return EXIT_FAILURE;
+    }
+
+    if (0 != uuid_init(worker_id, worker_count)) {
         return EXIT_FAILURE;
     }
 

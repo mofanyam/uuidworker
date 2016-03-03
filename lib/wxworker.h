@@ -12,12 +12,6 @@
 
 
 
-#ifndef container_of
-# define container_of(ptr, type, field) ((type*)((char*)(ptr) - ((char*)&((type*)0)->field)))
-#endif
-
-#define wx_err(fmt,...) fprintf(stderr, "[pid:%d] "__FILE__" : %d : "fmt" %s\n", getpid(), __LINE__, ##__VA_ARGS__, strerror(errno))
-
 struct wx_buf_s {
     char* base;
     size_t size;

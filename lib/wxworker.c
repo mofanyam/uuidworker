@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include "wxworker.h"
+#include "defs.h"
 
 
 static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {

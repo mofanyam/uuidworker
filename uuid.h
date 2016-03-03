@@ -15,7 +15,9 @@ struct uuid_s {
     uint64_t count:13;  // 分布式进程id (1<<14)-1 = 16383
 };
 
-int64_t create_uuid();
+int uuid_init(int worker_id, int worker_count);
+
+int64_t uuid_create();
 
 
 #endif //UUIDWORKER_UUID_H
