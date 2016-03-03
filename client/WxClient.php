@@ -32,7 +32,7 @@ class WxClient{
 		while (false===strpos($s, "\n")) {
 			$s .= $this->recv();
 		}
-		return $s;
+		return rtrim($s,"\n");
 	}
 
 	public function close() {
