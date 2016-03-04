@@ -9,6 +9,7 @@
 #include "bufpool.h"
 #include "uuid.h"
 #include "lib/defs.h"
+#include "lib/conf.h"
 
 
 #define POOL_BUF_SIZE 4096
@@ -239,14 +240,20 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
+    char connection_buf[32]={0};
+    size_t connection = 1024;
+    if (0 == wx_conf_get("connection", connection_buf, sizeof(connection_buf))) {
+        connection = (size_t)atoi(connection_buf);
+    }
+
     struct wx_worker_s worker;
     wx_worker_init(listen_fd, NULL, &worker);
 
-    if (0 != connections_alloc(&worker, 1024)) {
+    if (0 != connections_alloc(&worker, (uint32_t)connection)) {
         wx_err("connections_alloc");
         return EXIT_FAILURE;
     }
-    if (0 != buf_pool_alloc(POOL_BUF_SIZE, 1024)) {
+    if (0 != buf_pool_alloc(POOL_BUF_SIZE, connection)) {
         wx_err("buf_pool_alloc");
         connections_free();
         return EXIT_FAILURE;

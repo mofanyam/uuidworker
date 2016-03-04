@@ -21,6 +21,7 @@ int uuid_init(int worker_id, int worker_count) {
     char buf[512]={0};
 
     if (0 != wx_conf_get("gpid", buf, sizeof(buf))) {
+        wx_err("gpid not found in conf");
         return -1;
     }
 

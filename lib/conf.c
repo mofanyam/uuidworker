@@ -68,7 +68,6 @@ int wx_conf_get(const char* key, char* buf, size_t bufsize) {
         return -1;
     }
     if (1 != wx_getconf(wx_confstr, key, buf, bufsize)) {
-        wx_err("%s not found in config file[%s]", key, wx_conffile);
         return -1;
     }
     return 0;
