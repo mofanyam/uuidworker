@@ -10,6 +10,7 @@
 #include "uuid.h"
 #include "lib/defs.h"
 #include "lib/conf.h"
+#include "lib/dummyfd.h"
 
 
 #define POOL_BUF_SIZE 4096
@@ -19,6 +20,9 @@
 void connection_close(struct connection_s* conn, int statue) {
     if (!conn->inuse) {
         return;
+    }
+    if (wx_dummyfd_get() == -1) {
+        wx_dummyfd_open();
     }
     wx_timer_stop(&conn->close_timer);
     wx_read_stop(&conn->wx_conn);
@@ -166,13 +170,27 @@ void accept_cb(struct wx_worker_s* wk, int revents) {
 
     int cfd = accept(wk->listen_fd, NULL, 0);
     if (cfd < 0) {
-        if (errno == EAGAIN) {
-            errno = 0; //reset it
+        if (errno == EMFILE && wx_dummyfd_get() != -1 && 0 == wx_dummyfd_close()) {
+            cfd = accept(wk->listen_fd, NULL, 0);
+            if (cfd < 0) {
+                wx_dummyfd_open();
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    errno = 0; //reset it
+                } else {
+                    wx_err("accept");
+                }
+                connection_put(conn);
+                return;
+            }
         } else {
-            wx_err("accept");
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                errno = 0; //reset it
+            } else {
+                wx_err("accept");
+            }
+            connection_put(conn);
+            return;
         }
-        connection_put(conn);
-        return;
     }
 
     conn->fd = cfd;
@@ -259,12 +277,17 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
+    wx_dummyfd_open();
+
     int r = wx_worker_run(&worker, before_loop, NULL);
 
     wx_err("worker stop");
 
     buf_pool_free();
     connections_free();
+    if (-1 != wx_dummyfd_get()) {
+        wx_dummyfd_close();
+    }
 
     return r;
 }
