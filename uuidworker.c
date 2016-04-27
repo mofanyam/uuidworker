@@ -11,6 +11,7 @@
 #include "lib/defs.h"
 #include "lib/conf.h"
 #include "lib/dummyfd.h"
+//#include <gperftools/profiler.h>
 
 
 #define POOL_BUF_SIZE 4096
@@ -237,6 +238,7 @@ int get_worker_count() {
 }
 
 int main(int argc, char** argv) {
+    //ProfilerStart("./profiler.log");
     int listen_fd = get_listen_fd();
     if (listen_fd < 0) {
         wx_err("listen_fd < 0");
@@ -288,6 +290,6 @@ int main(int argc, char** argv) {
     if (-1 != wx_dummyfd_get()) {
         wx_dummyfd_close();
     }
-
+    //ProfilerStop();
     return r;
 }

@@ -11,4 +11,4 @@ add_subdirectory(lib)
 
 add_executable(uuidworker uuidworker.c connection.c bufpool.c uuid.c)
 
-target_link_libraries(uuidworker wxworker)
+target_link_libraries(uuidworker wxworker #[[profiler]])
