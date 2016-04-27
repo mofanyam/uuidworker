@@ -358,14 +358,14 @@ void wx_timer_stop(struct wx_timer_s* wx_timer) {
 int wx_timer_is_active(struct wx_timer_s* wx_timer) {
     return ev_is_active(&wx_timer->ev_timer);
 }
-
-void wx_fire_outbuf_chain_cleanup(struct wx_conn_s* wx_conn, int status) {
-    struct wx_buf_chain_s* tmp;
-    for (;wx_conn->out_bufc;) {
-        tmp = wx_conn->out_bufc;
-        wx_conn->out_bufc = wx_conn->out_bufc->next;
-        if (tmp->cleanup) {
-            tmp->cleanup(wx_conn, tmp , status);
-        }
-    }
-}
+//
+//void wx_fire_outbuf_chain_cleanup(struct wx_conn_s* wx_conn, int status) {
+//    struct wx_buf_chain_s* tmp;
+//    for (;wx_conn->out_bufc;) {
+//        tmp = wx_conn->out_bufc;
+//        wx_conn->out_bufc = wx_conn->out_bufc->next;
+//        if (tmp->cleanup) {
+//            tmp->cleanup(wx_conn, tmp , status);
+//        }
+//    }
+//}

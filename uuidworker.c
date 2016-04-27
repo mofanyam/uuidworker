@@ -18,7 +18,7 @@
 
 
 
-void connection_close(struct connection_s* conn, int statue) {
+void connection_close(struct connection_s* conn, int status) {
     if (!conn->inuse) {
         return;
     }
@@ -28,7 +28,7 @@ void connection_close(struct connection_s* conn, int statue) {
     wx_timer_stop(&conn->close_timer);
     wx_read_stop(&conn->wx_conn);
     wx_write_stop(&conn->wx_conn);
-    wx_fire_outbuf_chain_cleanup(&conn->wx_conn, statue);
+    //wx_fire_outbuf_chain_cleanup(&conn->wx_conn, statue);
     buf_pool_put((struct connection_buf_s*)conn->recvbuf);
     connection_put(conn);
 }
@@ -238,7 +238,7 @@ int get_worker_count() {
 }
 
 int main(int argc, char** argv) {
-    //ProfilerStart("./profiler.log");
+    //ProfilerStart("./profiler.pprof");
     int listen_fd = get_listen_fd();
     if (listen_fd < 0) {
         wx_err("listen_fd < 0");
