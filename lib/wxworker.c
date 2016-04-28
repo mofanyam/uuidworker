@@ -5,7 +5,6 @@
 #include <sys/socket.h>
 #include <assert.h>
 #include <errno.h>
-#include <unistd.h>
 #include "wxworker.h"
 #include "defs.h"
 
@@ -14,7 +13,7 @@ static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
     struct wx_conn_s* wx_conn = container_of(ww, struct wx_conn_s, wwatcher);
 
     int i=0;
-    struct wx_buf_chain_s* bc = wx_conn->out_bufc;
+    struct wx_buf_chain_s* bc, *outbufc = wx_conn->out_bufc;
     for (i=0;bc;) {
         i++;
         bc = bc->next;
@@ -23,23 +22,23 @@ static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
 
     if (i == 1) {
         for (;!wx_conn->stopwrite;) {
-            n = write(ww->fd, wx_conn->out_bufc->buf.base, wx_conn->out_bufc->buf.size);
+            n = send(ww->fd, outbufc->buf.base, outbufc->buf.size, 0);
             if (n < 0) {
                 if (errno == EAGAIN) {
                     errno = 0; // reset it
                 } else {
-                    if (wx_conn->out_bufc->cleanup) {
-                        wx_conn->out_bufc->cleanup(wx_conn, wx_conn->out_bufc, (int)n);
+                    if (outbufc->cleanup) {
+                        outbufc->cleanup(wx_conn, wx_conn->out_bufc, (int)n);
                     }
                     wx_conn->out_bufc = NULL;
                 }
                 break;
             }
-            wx_conn->out_bufc->buf.base += n;
-            wx_conn->out_bufc->buf.size -= n;
-            if (wx_conn->out_bufc->buf.size == 0) {
-                if (wx_conn->out_bufc->cleanup) {
-                    wx_conn->out_bufc->cleanup(wx_conn, wx_conn->out_bufc, 0);
+            outbufc->buf.base += n;
+            outbufc->buf.size -= n;
+            if (outbufc->buf.size == 0) {
+                if (outbufc->cleanup) {
+                    outbufc->cleanup(wx_conn, wx_conn->out_bufc, 0);
                 }
                 wx_conn->out_bufc = NULL;
                 break;
@@ -62,7 +61,7 @@ static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
                 } else {
                     for (;wx_conn->out_bufc;) {
                         bc = wx_conn->out_bufc;
-                        wx_conn->out_bufc = wx_conn->out_bufc->next;
+                        wx_conn->out_bufc = outbufc->next;
                         if (bc->cleanup) {
                             bc->cleanup(wx_conn, bc, (int)n);
                         }
@@ -71,16 +70,16 @@ static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
                 break;
             } else {
                 for (;wx_conn->out_bufc;) {
-                    n -= wx_conn->out_bufc->buf.size;
+                    n -= outbufc->buf.size;
                     if (n < 0) {
-                        wx_conn->out_bufc->buf.base += (wx_conn->out_bufc->buf.size + n);
-                        wx_conn->out_bufc->buf.size = -n;
+                        outbufc->buf.base += (outbufc->buf.size + n);
+                        outbufc->buf.size = -n;
                         break;
                     }else{
-                        wx_conn->out_bufc->buf.base += wx_conn->out_bufc->buf.size;
-                        wx_conn->out_bufc->buf.size = 0;
+                        outbufc->buf.base += outbufc->buf.size;
+                        outbufc->buf.size = 0;
                         bc = wx_conn->out_bufc;
-                        wx_conn->out_bufc = wx_conn->out_bufc->next;
+                        wx_conn->out_bufc = outbufc->next;
                         if (bc->cleanup) {
                             bc->cleanup(wx_conn, bc, 0);
                         }
@@ -109,29 +108,31 @@ void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* ou
 
     struct ev_io* ww = &wx_conn->wwatcher;
     ssize_t n;
+    struct wx_worker_s* wk = wx_conn->worker;
     if (queue_is_empty) {
-        if (NULL == wx_conn->out_bufc->next) {
+        struct wx_buf_chain_s* outbufc = wx_conn->out_bufc;
+        if (NULL == outbufc->next) {
             for (;;) {
-                n = write(fd, wx_conn->out_bufc->buf.base, wx_conn->out_bufc->buf.size);
+                n = send(fd, outbufc->buf.base, outbufc->buf.size, 0);
                 if (n < 0) {
                     if (errno == EAGAIN) {
                         if (!ev_is_active(ww)) {
                             ev_io_set(ww, fd, EV_READ);
-                            ev_io_start(wx_conn->worker->loop, ww);
+                            ev_io_start(wk->loop, ww);
                         }
                     } else {
-                        if (wx_conn->out_bufc->cleanup) {
-                            wx_conn->out_bufc->cleanup(wx_conn, wx_conn->out_bufc, (int)n);
+                        if (outbufc->cleanup) {
+                            outbufc->cleanup(wx_conn, wx_conn->out_bufc, (int)n);
                         }
                         wx_conn->out_bufc = NULL;
                     }
                     break;
                 } else {
-                    wx_conn->out_bufc->buf.base += n;
-                    wx_conn->out_bufc->buf.size -= n;
-                    if (wx_conn->out_bufc->buf.size == 0) {
-                        if (wx_conn->out_bufc->cleanup) {
-                            wx_conn->out_bufc->cleanup(wx_conn, wx_conn->out_bufc, 0);
+                    outbufc->buf.base += n;
+                    outbufc->buf.size -= n;
+                    if (outbufc->buf.size == 0) {
+                        if (outbufc->cleanup) {
+                            outbufc->cleanup(wx_conn, wx_conn->out_bufc, 0);
                         }
                         wx_conn->out_bufc = NULL;
                         break;
@@ -159,12 +160,12 @@ void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* ou
                     if (errno == EAGAIN) {
                         if (!ev_is_active(ww)) {
                             ev_io_set(ww, fd, EV_READ);
-                            ev_io_start(wx_conn->worker->loop, ww);
+                            ev_io_start(wk->loop, ww);
                         }
                     } else {
                         for (;wx_conn->out_bufc;) {
                             bc = wx_conn->out_bufc;
-                            wx_conn->out_bufc = wx_conn->out_bufc->next;
+                            wx_conn->out_bufc = outbufc->next;
                             if (bc->cleanup) {
                                 bc->cleanup(wx_conn, bc, (int)n);
                             }
@@ -173,16 +174,16 @@ void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* ou
                     break;
                 } else {
                     for (;wx_conn->out_bufc;) {
-                        n -= wx_conn->out_bufc->buf.size;
+                        n -= outbufc->buf.size;
                         if (n < 0) {
-                            wx_conn->out_bufc->buf.base += (wx_conn->out_bufc->buf.size + n);
-                            wx_conn->out_bufc->buf.size = -n;
+                            outbufc->buf.base += (outbufc->buf.size + n);
+                            outbufc->buf.size = -n;
                             break;
                         }else{
-                            wx_conn->out_bufc->buf.base += wx_conn->out_bufc->buf.size;
-                            wx_conn->out_bufc->buf.size = 0;
+                            outbufc->buf.base += outbufc->buf.size;
+                            outbufc->buf.size = 0;
                             bc = wx_conn->out_bufc;
-                            wx_conn->out_bufc = wx_conn->out_bufc->next;
+                            wx_conn->out_bufc = outbufc->next;
                             if (bc->cleanup) {
                                 bc->cleanup(wx_conn, bc, 0);
                             }
@@ -194,13 +195,12 @@ void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* ou
     } else {
         if (!ev_is_active(ww)) {
             ev_io_set(ww, fd, EV_READ);
-            ev_io_start(wx_conn->worker->loop, ww);
+            ev_io_start(wk->loop, ww);
         }
     }
 }
 void wx_write_stop(struct wx_conn_s* wx_conn) {
     wx_conn->stopwrite = 1;
-    
     if (ev_is_active(&wx_conn->wwatcher)) {
         ev_io_stop(wx_conn->worker->loop, &wx_conn->wwatcher);
     }
@@ -218,7 +218,7 @@ static void wx_do_read(EV_P_ struct ev_io* rw, int revents) {
             break;
         }
 
-        n = read(rw->fd, buf->base, buf->size);
+        n = recv(rw->fd, buf->base, buf->size, 0);
 
         wx_conn->read_cb(wx_conn, buf, n);
 
@@ -358,14 +358,3 @@ void wx_timer_stop(struct wx_timer_s* wx_timer) {
 int wx_timer_is_active(struct wx_timer_s* wx_timer) {
     return ev_is_active(&wx_timer->ev_timer);
 }
-//
-//void wx_fire_outbuf_chain_cleanup(struct wx_conn_s* wx_conn, int status) {
-//    struct wx_buf_chain_s* tmp;
-//    for (;wx_conn->out_bufc;) {
-//        tmp = wx_conn->out_bufc;
-//        wx_conn->out_bufc = wx_conn->out_bufc->next;
-//        if (tmp->cleanup) {
-//            tmp->cleanup(wx_conn, tmp , status);
-//        }
-//    }
-//}

@@ -11,6 +11,7 @@
 #include "lib/defs.h"
 #include "lib/conf.h"
 #include "lib/dummyfd.h"
+#include "lib/env.h"
 //#include <gperftools/profiler.h>
 
 
@@ -28,7 +29,6 @@ void connection_close(struct connection_s* conn, int status) {
     wx_timer_stop(&conn->close_timer);
     wx_read_stop(&conn->wx_conn);
     wx_write_stop(&conn->wx_conn);
-    //wx_fire_outbuf_chain_cleanup(&conn->wx_conn, statue);
     buf_pool_put((struct connection_buf_s*)conn->recvbuf);
     connection_put(conn);
 }
@@ -96,19 +96,19 @@ void do_line(struct connection_s* conn, const char* bufbase, size_t buflen) {
     }
 }
 
-int find_first_ln(char* ptr, size_t size) {
+int find_char(char* ptr, size_t size, char c) {
     int i;
     for (i=0; i<size; i++) {
-        if (ptr[i] == '\n') {
+        if (ptr[i] == c) {
             return i;
         }
     }
     return -1;
 }
 
-int find_last_ln(char* ptr, size_t size) {
+int find_charr(char* ptr, size_t size, char c) {
     for (;size--;) {
-        if (ptr[size] == '\n') {
+        if (ptr[size] == c) {
             return (int)size;
         }
     }
@@ -129,27 +129,29 @@ void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t nread) {
         return;
     }
 
-    conn->recvbuf->size -= nread;
-    conn->recvbuf->base += nread;
+    struct wx_buf_s* recvbuf = conn->recvbuf;
+
+    recvbuf->size -= nread;
+    recvbuf->base += nread;
 
     char* origin_base = (char*)buf + sizeof(struct connection_buf_s);
-    struct wx_buf_s databuf = {.base=origin_base, .size=POOL_BUF_SIZE-conn->recvbuf->size};
+    struct wx_buf_s databuf = {.base=origin_base, .size=POOL_BUF_SIZE-recvbuf->size};
 
-    if (conn->recvbuf->size == 0 && -1 == find_last_ln(origin_base, POOL_BUF_SIZE-conn->recvbuf->size)) {
+    if (recvbuf->size == 0 && -1 == find_charr(origin_base, POOL_BUF_SIZE-recvbuf->size, '\n')) {
         connection_close(conn, -12);
         return;
     }
 
     int i,lastlnpos;
-    for(;;) {
-        lastlnpos = find_first_ln(databuf.base, databuf.size);
+    for (;;) {
+        lastlnpos = find_char(databuf.base, databuf.size, '\n');
         if (lastlnpos == -1) {
             if (origin_base != databuf.base) {
-                for(i=0;i<databuf.size;i++) {
+                for (i=0;i<databuf.size;i++) {
                     origin_base[i] = databuf.base[i];
                 }
-                conn->recvbuf->base = origin_base;
-                conn->recvbuf->size = POOL_BUF_SIZE-databuf.size;
+                recvbuf->base = origin_base;
+                recvbuf->size = POOL_BUF_SIZE-databuf.size;
             }
             break;
         }
@@ -210,47 +212,20 @@ void before_loop(struct wx_worker_s* wk) {
     wx_accept_start(wk, accept_cb);
 }
 
-int get_listen_fd() {
-    int listen_fd = -1;
-    char* evnptr = getenv("LISTEN_FD");
-    if (evnptr) {
-        listen_fd = atoi(evnptr);
-    }
-    return listen_fd;
-}
-
-int get_worker_id() {
-    int wkr_id = -1;
-    char* evnptr = getenv("WKR_ID");
-    if (evnptr) {
-        wkr_id = atoi(evnptr);
-    }
-    return wkr_id;
-}
-
-int get_worker_count() {
-    int wkr_count = -1;
-    char* evnptr = getenv("WKR_COUNT");
-    if (evnptr) {
-        wkr_count = atoi(evnptr);
-    }
-    return wkr_count;
-}
-
 int main(int argc, char** argv) {
-    //ProfilerStart("./profiler.pprof");
-    int listen_fd = get_listen_fd();
+//    ProfilerStart("./profiler.pprof");
+    int listen_fd = wx_env_get_listen_fd();
     if (listen_fd < 0) {
         wx_err("listen_fd < 0");
         return EXIT_FAILURE;
     }
 
-    int worker_id = get_worker_id();
+    int worker_id = wx_env_get_worker_id();
     if (worker_id < 0) {
         wx_err("worker_id < 0");
         return EXIT_FAILURE;
     }
-    int worker_count = get_worker_count();
+    int worker_count = wx_env_get_worker_count();
     if (worker_count < 0) {
         wx_err("worker_count < 0");
         return EXIT_FAILURE;
@@ -290,6 +265,6 @@ int main(int argc, char** argv) {
     if (-1 != wx_dummyfd_get()) {
         wx_dummyfd_close();
     }
-    //ProfilerStop();
+//    ProfilerStop();
     return r;
 }

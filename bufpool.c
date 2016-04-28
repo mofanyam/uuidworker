@@ -22,7 +22,7 @@ int buf_pool_alloc(size_t buflen, size_t size) {
     _uuid_buf_chains = uuid_buf_chains = bs;
     char* tmp;
     size_t i;
-    for(i=0; i<size; i++) {
+    for (i=0; i<size; i++) {
         bs->inuse = 0;
         bs->buf.base = (char*)bs+sizeof(struct connection_buf_s);
         bs->buf.size = buflen;
