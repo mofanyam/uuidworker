@@ -16,7 +16,7 @@ struct connection_s {
     struct connection_s* next;
     int fd;
     int inuse;
-    size_t recvlen;
+//    size_t recvlen;
     struct wx_buf_s* recvbuf;
 };
 
