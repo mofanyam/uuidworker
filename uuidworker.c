@@ -52,9 +52,7 @@ void cleanup_put_buf(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* out_bufc,
     if (conn->keepalivems == 0) {
         connection_close(conn, 0);
     } else if (conn->keepalivems > 0) {
-        if (wx_timer_is_active(&conn->close_timer)) {
-            wx_timer_stop(&conn->close_timer);
-        }
+        wx_timer_stop(&conn->close_timer);
         wx_timer_start(&conn->close_timer, (uint32_t)conn->keepalivems, timer_cb_close);
     }
 }
@@ -99,6 +97,7 @@ void do_line(struct connection_s* conn, const char* bufbase, size_t buflen) {
         size_t data_size = sizeof(conn->bufchainwithbuf) - sizeof(struct wx_buf_chain_s) - conn->recvbuf.size;
         conn->recvbuf.base = NULL;
         conn->recvbuf.size = 0;
+        wx_timer_stop(&conn->close_timer);//已接收到完整的请求，响应开始，关闭前面的接收超时器
         do_request(conn, data_base, data_size);
     }
 }
@@ -117,6 +116,9 @@ void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t nread) {
         return;
     }
 
+    wx_timer_stop(&conn->close_timer);
+    wx_timer_start(&conn->close_timer, 5000, timer_cb_close);//给你5秒钟，如果还不发送完一个请求老子不伺候了
+
     struct wx_buf_s* recvbuf = &conn->recvbuf;
 
     recvbuf->size -= nread;
@@ -131,7 +133,7 @@ void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t nread) {
         return;
     }
 
-    int i,lastlnpos;
+    int lastlnpos;
     for (;;) {
         lastlnpos = find_char(data_base, data_size, '\n');
         if (lastlnpos == -1) {
