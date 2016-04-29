@@ -44,8 +44,10 @@ struct connection_s* connection_get() {
         tmp->next = NULL;
         tmp->inuse = 1;
         tmp->fd = -1;
-//        tmp->recvlen = 0;
-        tmp->recvbuf = NULL;
+        tmp->recvbuf.base = tmp->bufchainwithbuf + sizeof(struct wx_buf_chain_s);
+        tmp->recvbuf.size = sizeof(tmp->bufchainwithbuf) - sizeof(struct wx_buf_chain_s);
+        tmp->sendbuf.base = NULL;
+        tmp->sendbuf.size = 0;
         tmp->keepalivems = 0; //默认完成一个请求之后立即关闭链接
     }
     return tmp;

@@ -9,7 +9,7 @@ set(CMAKE_CXX_FLAGS_DEBUG, "${CMAKE_CXX_FLAGS_DEBUG}")
 add_subdirectory(lib)
 
 
-add_executable(uuidworker uuidworker.c connection.c bufpool.c uuid.c)
+add_executable(uuidworker uuidworker.c connection.c uuid.c)
 
 target_link_libraries(uuidworker wxworker)
 #target_link_libraries(uuidworker wxworker profiler)

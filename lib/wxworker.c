@@ -14,7 +14,7 @@ static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
 
     int i=0;
     struct wx_buf_chain_s* bc, *outbufc = wx_conn->out_bufc;
-    for (i=0;bc;) {
+    for (i = 0; bc;) {
         i++;
         bc = bc->next;
     }
@@ -91,7 +91,7 @@ static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
 }
 void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* out_bufc) {
     assert(fd > 0);
-    
+
     wx_conn->stopwrite = 0;
 
     int queue_is_empty = 0;
