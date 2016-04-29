@@ -117,7 +117,7 @@ void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t nread) {
     }
 
     wx_timer_stop(&conn->close_timer);
-    wx_timer_start(&conn->close_timer, 5000, timer_cb_close);//给你5秒钟，如果还不发送完一个请求老子不伺候了
+    wx_timer_start(&conn->close_timer, 10000, timer_cb_close);//给你10秒钟，如果还不发送完一个请求老子不伺候了
 
     struct wx_buf_s* recvbuf = &conn->recvbuf;
 
@@ -127,9 +127,9 @@ void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t nread) {
     char* data_base = conn->bufchainwithbuf + sizeof(struct wx_buf_chain_s);
     size_t data_size = sizeof(conn->bufchainwithbuf) - sizeof(struct wx_buf_chain_s) - recvbuf->size;
 
-    if (recvbuf->size == 0 && -1 == find_charr(data_base, data_size, '\n')) {
+    if (recvbuf->size == 0 && data_base[data_size-1] != '\n' && data_base[data_size-2] != '\r') {
         connection_close(conn, -12);
-        wx_err("request header too long");
+        wx_err("recv buffer is full");
         return;
     }
 
