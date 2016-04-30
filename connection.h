@@ -6,19 +6,20 @@
 #define UUIDWORKER_CONNECTION_H
 
 
+#include <unistd.h>
+#include <stdlib.h>
 #include "lib/wxworker.h"
 
 
 struct connection_s {
     struct wx_conn_s wx_conn;
     struct wx_timer_s close_timer;
-    int keepalivems;
-    struct connection_s* next;
-    int fd;
-    int inuse;
     struct wx_buf_s recvbuf;
     struct wx_buf_s sendbuf;
     char bufchainwithbuf[sizeof(struct wx_buf_chain_s) + 128];
+    struct connection_s* next;
+    int keepalivems;
+    int inuse;
 };
 
 

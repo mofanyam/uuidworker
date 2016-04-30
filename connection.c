@@ -2,9 +2,6 @@
 // Created by mofan on 1/30/16.
 //
 
-#include <unistd.h>
-#include <assert.h>
-#include <stdlib.h>
 #include "connection.h"
 
 
@@ -43,7 +40,6 @@ struct connection_s* connection_get() {
         free_conns = free_conns->next;
         tmp->next = NULL;
         tmp->inuse = 1;
-        tmp->fd = -1;
         tmp->recvbuf.base = tmp->bufchainwithbuf + sizeof(struct wx_buf_chain_s);
         tmp->recvbuf.size = sizeof(tmp->bufchainwithbuf) - sizeof(struct wx_buf_chain_s);
         tmp->sendbuf.base = NULL;
@@ -57,8 +53,9 @@ void connection_put(struct connection_s* conn) {
         return;
     }
     conn->inuse = 0;
-    if (conn->fd > 0) {
-        close(conn->fd);
+    int fd = conn->wx_conn.rwatcher.fd;
+    if (fd > 0) {
+        close(fd);
     }
     conn->next = free_conns;
     free_conns = conn;

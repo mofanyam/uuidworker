@@ -65,7 +65,7 @@ void do_request(struct connection_s* conn, const char* data_base, size_t data_si
 
     bc->buf.size = (size_t)sprintf(bc->buf.base, "%llu\n", uuid);
 
-    wx_write_start(&conn->wx_conn, conn->fd, bc);
+    wx_write_start(&conn->wx_conn, conn->wx_conn.rwatcher.fd, bc);
 }
 
 int find_char(char* ptr, size_t size, char c) {
@@ -177,8 +177,6 @@ void accept_cb(struct wx_worker_s* wk, int revents) {
             return;
         }
     }
-
-    conn->fd = cfd;
 
     int p = fcntl(cfd, F_GETFL);
     if (-1 == p || -1 == fcntl(cfd, F_SETFL, p|O_NONBLOCK)) {
