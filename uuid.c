@@ -51,6 +51,10 @@ int uuid_init(int worker_id, int worker_count) {
     return 0;
 }
 
+int uuid_get_gpid() {
+    return uuid_gpid;
+}
+
 uint64_t uuid_create() {
     struct uuid_s uuid;
     uuid.gpid = (uint64_t)uuid_gpid; // max = (1<<10)-1 = 1023

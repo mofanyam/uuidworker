@@ -17,6 +17,8 @@ struct uuid_s {
 
 int uuid_init(int worker_id, int worker_count);
 
+int uuid_get_gpid();
+
 uint64_t uuid_create();
 
 
