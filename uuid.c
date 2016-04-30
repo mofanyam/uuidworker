@@ -38,7 +38,7 @@ int uuid_init(int worker_id, int worker_count) {
     q = buf;
     int i;
     for (i=0; i<worker_id; i++) {
-        q += strlen(q);
+        q += strlen(q)+1;
     }
 
     uuid_gpid = atoi(q);
