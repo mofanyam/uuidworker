@@ -31,8 +31,6 @@ struct wx_conn_s {
     struct wx_buf_chain_s* out_bufc;
 
     struct wx_worker_s* worker;
-    unsigned int stopread:1;
-    unsigned int stopwrite:1;
 };
 
 struct wx_buf_chain_s {
