@@ -22,6 +22,13 @@ struct wx_buf_s {
     size_t size;
 };
 
+struct wx_outbuf_s {
+    char* base;
+    size_t size;
+    int ffd;
+    off_t off;
+};
+
 struct wx_conn_s {
     struct ev_io rwatcher;
     struct wx_buf_s* (*alloc_cb)(struct wx_conn_s* wx_conn, size_t suggested_size);
@@ -34,7 +41,7 @@ struct wx_conn_s {
 };
 
 struct wx_buf_chain_s {
-    struct wx_buf_s buf;
+    struct wx_outbuf_s buf;
     struct wx_buf_chain_s* next;
     void (*cleanup)(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* out_bufc, int status);
 };

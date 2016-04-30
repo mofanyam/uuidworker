@@ -5,11 +5,19 @@
 #include "wxworker.h"
 
 
-static ssize_t wx_send_buf(int fd, struct wx_buf_s* buf) {
-    ssize_t nsent = send(fd, buf->base, buf->size, 0);
-    if (nsent > 0) {
-        buf->size -= nsent;
-        buf->base += nsent;
+static ssize_t wx_send_buf(int fd, struct wx_outbuf_s* obuf) {
+    ssize_t nsent;
+    if (obuf->ffd > 0) {
+        nsent = sendfile(fd, obuf->ffd, &obuf->off, obuf->size);
+        if (nsent > 0) {
+            obuf->size -= nsent;
+        }
+    }else {
+        nsent = send(fd, obuf->base, obuf->size, 0);
+        if (nsent > 0) {
+            obuf->size -= nsent;
+            obuf->base += nsent;
+        }
     }
     return nsent;
 }
