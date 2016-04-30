@@ -5,23 +5,14 @@
 #include "wxworker.h"
 
 
-static ssize_t wx_send_buf(int fd, struct wx_outbuf_s* obuf) {
-    ssize_t nsent;
-    if (obuf->ffd > 0) {
-        nsent = sendfile(fd, obuf->ffd, &obuf->off, obuf->size);
-        if (nsent > 0) {
-            obuf->size -= nsent;
-        }
-    }else {
-        nsent = send(fd, obuf->base, obuf->size, 0);
-        if (nsent > 0) {
-            obuf->size -= nsent;
-            obuf->base += nsent;
-        }
+static ssize_t wx_send_buf(int fd, struct wx_buf_s* obuf) {
+    ssize_t nsent = send(fd, obuf->base, obuf->size, 0);
+    if (nsent > 0) {
+        obuf->size -= nsent;
+        obuf->base += nsent;
     }
     return nsent;
 }
-
 int wx_send_buf_chian(struct wx_conn_s* wx_conn, int fd) {
     ssize_t nsent;
     struct wx_buf_chain_s* tmp;
@@ -52,8 +43,6 @@ int wx_send_buf_chian(struct wx_conn_s* wx_conn, int fd) {
     }
     return 0;
 }
-
-
 static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
     struct wx_conn_s* wx_conn = container_of(ww, struct wx_conn_s, wwatcher);
 
@@ -86,6 +75,14 @@ void wx_write_stop(struct wx_conn_s* wx_conn) {
 }
 
 
+static ssize_t wx_recv_buf(int fd, struct wx_buf_s* ibuf) {
+    ssize_t nread = recv(fd, ibuf->base, ibuf->size, 0);
+    if (nread > 0) {
+        ibuf->base += nread;
+        ibuf->size -= nread;
+    }
+    return nread;
+}
 static void wx_do_read(EV_P_ struct ev_io* rw, int revents) {
     struct wx_conn_s* wx_conn = container_of(rw, struct wx_conn_s, rwatcher);
 
@@ -97,9 +94,9 @@ static void wx_do_read(EV_P_ struct ev_io* rw, int revents) {
             break;
         }
 
-        n = recv(rw->fd, buf->base, buf->size, 0);
+        n = wx_recv_buf(rw->fd, buf);
 
-        wx_conn->read_cb(wx_conn, buf, n);
+        wx_conn->read_cb(wx_conn, buf, buf->base-n, n);
 
         if (n <= 0) {
             break;
@@ -110,7 +107,7 @@ void wx_read_start(
         struct wx_conn_s* wx_conn,
         int fd,
         struct wx_buf_s* (*alloc_cb)(struct wx_conn_s* wx_conn, size_t suggested_size),
-        void (*read_cb)(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t nread)
+        void (*read_cb)(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, char* lastbase, ssize_t nread)
 ) {
     assert(alloc_cb != NULL);
     assert(read_cb != NULL);
@@ -232,4 +229,15 @@ void wx_timer_stop(struct wx_timer_s* wx_timer) {
 }
 int wx_timer_is_active(struct wx_timer_s* wx_timer) {
     return ev_is_active(&wx_timer->ev_timer);
+}
+
+
+char* wx_buf_strstr(const struct wx_buf_s* buf1, const struct wx_buf_s* buf2) {
+    const char* p = buf1->base;
+    const size_t len = buf2->size;
+    for (; (p = strchr(p, *buf2->base)) != 0 && p<=buf1->base+buf1->size; p++) {
+        if (strncmp(p, buf2->base, len) == 0)
+            return (char *)p;
+    }
+    return (0);
 }

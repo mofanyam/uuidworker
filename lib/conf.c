@@ -72,3 +72,7 @@ int wx_conf_get(const char* key, char* buf, size_t bufsize) {
     }
     return 0;
 }
+
+char* wx_conf_exe_name() {
+    return wx_selfpath;
+}

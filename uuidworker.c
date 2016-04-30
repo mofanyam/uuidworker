@@ -102,7 +102,7 @@ void do_line(struct connection_s* conn, const char* bufbase, size_t buflen) {
     }
 }
 
-void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t nread) {
+void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, char* lastbase, ssize_t nread) {
     struct connection_s* conn = (struct connection_s*)wx_conn;
     if (nread < 0) {
         if (errno == EAGAIN) {
@@ -119,30 +119,29 @@ void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t nread) {
     wx_timer_stop(&conn->close_timer);
     wx_timer_start(&conn->close_timer, 10000, timer_cb_close);//给你10秒钟，如果还不发送完一个请求老子不伺候了
 
-    struct wx_buf_s* recvbuf = &conn->recvbuf;
+    struct wx_buf_s data;
+    data.base = conn->bufchainwithbuf + sizeof(struct wx_buf_chain_s);
+    data.size = sizeof(conn->bufchainwithbuf) - sizeof(struct wx_buf_chain_s) - buf->size;
 
-    recvbuf->size -= nread;
-    recvbuf->base += nread;
+    struct wx_buf_s rnrn = {.base="\r\n\r\n", .size=4};
 
-    char* data_base = conn->bufchainwithbuf + sizeof(struct wx_buf_chain_s);
-    size_t data_size = sizeof(conn->bufchainwithbuf) - sizeof(struct wx_buf_chain_s) - recvbuf->size;
-
-    if (recvbuf->size == 0 && data_base[data_size-1] != '\n' && data_base[data_size-2] != '\r') {
-        connection_close(conn, -12);
-        wx_err("recv buffer is full");
-        return;
-    }
-
-    int lastlnpos;
-    for (;;) {
-        lastlnpos = find_char(data_base, data_size, '\n');
-        if (lastlnpos == -1) {
-            break;
+    if (data.size > 3 && 0 < wx_buf_strstr(&data, &rnrn)) {
+        int lastlnpos;
+        char* data_base = data.base;
+        size_t data_size = data.size;
+        for (;;) {
+            lastlnpos = find_char(data_base, data_size, '\n');
+            if (lastlnpos == -1) {
+                break;
+            }
+            lastlnpos++;
+            do_line(conn, data_base, (size_t)lastlnpos);
+            data_base += lastlnpos;
+            data_size -= lastlnpos;
         }
-        lastlnpos++;
-        do_line(conn, data_base, (size_t)lastlnpos);
-        data_base += lastlnpos;
-        data_size -= lastlnpos;
+    } else if (buf->size == 0) {
+        connection_close(conn, -12); // buffer overflow
+        wx_err("recv buffer overflow");
     }
 }
 
