@@ -4,10 +4,10 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <netinet/tcp.h>
 #include "lib/wxworker.h"
 #include "connection.h"
 #include "uuid.h"
-#include "lib/defs.h"
 #include "lib/conf.h"
 #include "lib/dummyfd.h"
 #include "lib/env.h"
@@ -186,6 +186,9 @@ void accept_cb(struct wx_worker_s* wk, int revents) {
         connection_put(conn);
         return;
     }
+
+    int one = 1;
+    setsockopt(cfd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
 
     wx_read_start(&conn->wx_conn, cfd, alloc_cb, read_cb);
 }

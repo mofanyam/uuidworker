@@ -9,6 +9,11 @@
 #include <ev.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/socket.h>
+#include <sys/sendfile.h>
+#include <assert.h>
+#include <errno.h>
+#include "defs.h"
 
 
 

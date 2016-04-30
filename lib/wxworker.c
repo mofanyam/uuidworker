@@ -2,11 +2,7 @@
 // Created by mofan on 1/22/16.
 //
 
-#include <sys/socket.h>
-#include <assert.h>
-#include <errno.h>
 #include "wxworker.h"
-#include "defs.h"
 
 
 static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
@@ -117,7 +113,7 @@ void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* ou
                 if (n < 0) {
                     if (errno == EAGAIN) {
                         if (!ev_is_active(ww)) {
-                            ev_io_set(ww, fd, EV_READ);
+                            ev_io_set(ww, fd, EV_WRITE);
                             ev_io_start(wk->loop, ww);
                         }
                     } else {
@@ -159,7 +155,7 @@ void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* ou
                 if (n < 0) {
                     if (errno == EAGAIN) {
                         if (!ev_is_active(ww)) {
-                            ev_io_set(ww, fd, EV_READ);
+                            ev_io_set(ww, fd, EV_WRITE);
                             ev_io_start(wk->loop, ww);
                         }
                     } else {
@@ -194,7 +190,7 @@ void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* ou
         }
     } else {
         if (!ev_is_active(ww)) {
-            ev_io_set(ww, fd, EV_READ);
+            ev_io_set(ww, fd, EV_WRITE);
             ev_io_start(wk->loop, ww);
         }
     }
