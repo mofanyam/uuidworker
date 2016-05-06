@@ -67,7 +67,7 @@ void do_request(struct connection_s* conn, const char* data_base, size_t data_si
     wx_write_start(&conn->wx_conn, conn->wx_conn.rwatcher.fd, bc);
 }
 
-int find_char(char* ptr, size_t size, char c) {
+static inline int find_char(char* ptr, size_t size, char c) {
     int i;
     for (i=0; i<size; i++) {
         if (ptr[i] == c) {
@@ -185,9 +185,6 @@ void before_loop(struct wx_worker_s* wk) {
 }
 
 int main(int argc, char** argv) {
-//    char _b[64]={0};
-//    sprintf(_b, "./profiler-%d.pprof", getpid());
-//    ProfilerStart(_b);
     int listen_fd = wx_env_get_listen_fd();
     if (listen_fd < 0) {
         wx_err("listen_fd < 0");
@@ -199,6 +196,11 @@ int main(int argc, char** argv) {
         wx_err("worker_id < 0");
         return EXIT_FAILURE;
     }
+
+//    char _b[64]={0};
+//    sprintf(_b, "./profiler-%d.pprof", worker_id);
+//    ProfilerStart(_b);
+
     int worker_count = wx_env_get_worker_count();
     if (worker_count < 0) {
         wx_err("worker_count < 0");
@@ -233,6 +235,8 @@ int main(int argc, char** argv) {
     if (-1 != wx_dummyfd_get()) {
         wx_dummyfd_close();
     }
+
 //    ProfilerStop();
+
     return r;
 }

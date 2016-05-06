@@ -5,7 +5,7 @@
 #include "wxworker.h"
 
 
-static ssize_t wx_send_buf(int fd, struct wx_buf_s* obuf) {
+static inline ssize_t wx_send_buf(int fd, struct wx_buf_s* obuf) {
     ssize_t nsent = send(fd, obuf->base, obuf->size, 0);
     if (nsent > 0) {
         obuf->size -= nsent;
@@ -43,7 +43,7 @@ int wx_send_buf_chian(struct wx_conn_s* wx_conn, int fd) {
     }
     return 0;
 }
-static void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
+static inline void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
     struct wx_conn_s* wx_conn = container_of(ww, struct wx_conn_s, wwatcher);
 
     if (ev_is_active(&wx_conn->wwatcher)) {
@@ -75,7 +75,7 @@ void wx_write_stop(struct wx_conn_s* wx_conn) {
 }
 
 
-static ssize_t wx_recv_buf(int fd, struct wx_buf_s* ibuf) {
+static inline ssize_t wx_recv_buf(int fd, struct wx_buf_s* ibuf) {
     ssize_t nread = recv(fd, ibuf->base, ibuf->size, 0);
     if (nread > 0) {
         ibuf->base += nread;
@@ -83,7 +83,7 @@ static ssize_t wx_recv_buf(int fd, struct wx_buf_s* ibuf) {
     }
     return nread;
 }
-static void wx_do_read(EV_P_ struct ev_io* rw, int revents) {
+static inline void wx_do_read(EV_P_ struct ev_io* rw, int revents) {
     struct wx_conn_s* wx_conn = container_of(rw, struct wx_conn_s, rwatcher);
 
     struct wx_buf_s* buf;
@@ -130,7 +130,7 @@ void wx_read_stop(struct wx_conn_s* wx_conn) {
 }
 
 
-static void wx_do_accept(EV_P_ struct ev_io* aw, int revents) {
+static inline void wx_do_accept(EV_P_ struct ev_io* aw, int revents) {
     struct wx_worker_s* wk = container_of(aw, struct wx_worker_s, accept_watcher);
     if (wk->accept_cb) {
         wk->accept_cb(wk, revents);
@@ -169,11 +169,11 @@ void wx_worker_init(int listen_fd, void* data, struct wx_worker_s* wk) {
 
 
 static struct ev_signal quit_watcher;
-static void wx_break_loop(EV_P_ struct ev_signal* quit_watcher, int revents) {
+static inline void wx_break_loop(EV_P_ struct ev_signal* quit_watcher, int revents) {
     ev_signal_stop(loop, quit_watcher);
     ev_break(loop, EVBREAK_ONE);
 }
-static void wx_setup_quit_monitor(struct ev_loop* loop) {
+static inline void wx_setup_quit_monitor(struct ev_loop* loop) {
     ev_signal_init(&quit_watcher, wx_break_loop, SIGQUIT);
     ev_signal_start(loop, &quit_watcher);
 }
@@ -202,7 +202,7 @@ int wx_worker_run(
 }
 
 
-static void wx_comm_timer_cb(EV_P_ struct ev_timer* timer, int revents) {
+static inline void wx_comm_timer_cb(EV_P_ struct ev_timer* timer, int revents) {
     struct wx_timer_s* wx_timer = (struct wx_timer_s*)timer;
     if (wx_timer->timer_cb) {
         wx_timer->timer_cb(wx_timer);

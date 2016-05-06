@@ -45,7 +45,7 @@ int wx_env_get_shm_id() {
 
 int wx_env_get_shm_size() {
     int shm_size = -1;
-    char* evnptr = getenv("SHM_ID");
+    char* evnptr = getenv("SHM_SIZE");
     if (evnptr) {
         shm_size = atoi(evnptr);
     }
