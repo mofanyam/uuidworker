@@ -1,8 +1,8 @@
 uuid生成器
 
 运行：
-	tcplistener ip port path/to/uuidworker processnumber shmmemorysize
-	如：./tcplistener 0.0.0.0 9527 ./uuidworker 2 0
+	wxlistener ip port path/to/uuidworker [shmmemorysize]
+	如：./wxlistener 0.0.0.0 9527 ./uuidworker 0
 
 长度：
 	64位(可配合mysql bigint类型使用)
