@@ -16,16 +16,15 @@
 
 
 void connection_close(struct connection_s* conn, int status) {
-    if (!conn->inuse) {
-        return;
+    if (conn->inuse & 1) {
+        if (wx_dummyfd_get() == -1) {
+            wx_dummyfd_open();
+        }
+        wx_timer_stop(&conn->close_timer);
+        wx_read_stop(&conn->wx_conn);
+        wx_write_stop(&conn->wx_conn);
+        connection_put(conn);
     }
-    if (wx_dummyfd_get() == -1) {
-        wx_dummyfd_open();
-    }
-    wx_timer_stop(&conn->close_timer);
-    wx_read_stop(&conn->wx_conn);
-    wx_write_stop(&conn->wx_conn);
-    connection_put(conn);
 }
 
 void timer_cb_close(struct wx_timer_s* close_timer) {
@@ -73,15 +72,6 @@ int find_char(char* ptr, size_t size, char c) {
     for (i=0; i<size; i++) {
         if (ptr[i] == c) {
             return i;
-        }
-    }
-    return -1;
-}
-
-int find_charr(char* ptr, size_t size, char c) {
-    for (;size--;) {
-        if (ptr[size] == c) {
-            return (int)size;
         }
     }
     return -1;
@@ -195,7 +185,9 @@ void before_loop(struct wx_worker_s* wk) {
 }
 
 int main(int argc, char** argv) {
-//    ProfilerStart("./profiler.pprof");
+//    char _b[64]={0};
+//    sprintf(_b, "./profiler-%d.pprof", getpid());
+//    ProfilerStart(_b);
     int listen_fd = wx_env_get_listen_fd();
     if (listen_fd < 0) {
         wx_err("listen_fd < 0");

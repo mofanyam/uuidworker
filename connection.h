@@ -19,7 +19,7 @@ struct connection_s {
     char bufchainwithbuf[sizeof(struct wx_buf_chain_s) + 128];
     struct connection_s* next;
     int keepalivems;
-    int inuse;
+    char inuse:1;
 };
 
 

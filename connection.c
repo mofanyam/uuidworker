@@ -49,14 +49,14 @@ struct connection_s* connection_get() {
     return tmp;
 }
 void connection_put(struct connection_s* conn) {
-    if (0 == conn->inuse) {
-        return;
+    if (conn && (conn->inuse & 1)) {
+        conn->inuse = 0;
+        int fd = conn->wx_conn.rwatcher.fd;
+        if (fd > 0) {
+            close(fd);
+        }
+        conn->next = free_conns;
+        free_conns = conn;
+        conn = NULL;
     }
-    conn->inuse = 0;
-    int fd = conn->wx_conn.rwatcher.fd;
-    if (fd > 0) {
-        close(fd);
-    }
-    conn->next = free_conns;
-    free_conns = conn;
 }
