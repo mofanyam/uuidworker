@@ -6,6 +6,10 @@
 #define WXWORKER_DUMMYFD_H
 
 
+#include <fcntl.h>
+#include <unistd.h>
+
+
 int wx_dummyfd_open();
 
 int wx_dummyfd_get();

@@ -3,8 +3,6 @@
 //
 // http://linux.die.net/man/3/ev
 
-#include <fcntl.h>
-#include <unistd.h>
 #include "dummyfd.h"
 
 
