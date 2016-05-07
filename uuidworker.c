@@ -177,12 +177,9 @@ void accept_cb(struct wx_worker_s* wk, int revents) {
     int one = 1;
     setsockopt(cfd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
 
-    wx_read_start(&conn->wx_conn, cfd, alloc_cb, read_cb);
+    wx_read_start(&conn->wx_conn, cfd);
 }
 
-void before_loop(struct wx_worker_s* wk) {
-    wx_accept_start(wk, accept_cb);
-}
 
 int main(int argc, char** argv) {
     int listen_fd = wx_env_get_listen_fd();
@@ -218,7 +215,7 @@ int main(int argc, char** argv) {
     }
 
     struct wx_worker_s worker;
-    wx_worker_init(listen_fd, NULL, &worker);
+    wx_worker_init(listen_fd, &worker, accept_cb, alloc_cb, read_cb);
 
     if (0 != connections_alloc(&worker, (uint32_t)connection)) {
         wx_err("connections_alloc");
@@ -227,7 +224,7 @@ int main(int argc, char** argv) {
 
     wx_dummyfd_open();
 
-    int r = wx_worker_run(&worker, before_loop, NULL);
+    int r = wx_worker_run(&worker);
 
     wx_err("worker stop");
 

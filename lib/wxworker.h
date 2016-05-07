@@ -24,12 +24,8 @@ struct wx_buf_s {
 
 struct wx_conn_s {
     struct ev_io rwatcher;
-    struct wx_buf_s* (*alloc_cb)(struct wx_conn_s* wx_conn, size_t suggested_size);
-    void (*read_cb)(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, char* lastbase, ssize_t nread);
-
     struct ev_io wwatcher;
     struct wx_buf_chain_s* out_bufc;
-
     struct wx_worker_s* worker;
 };
 
@@ -39,12 +35,18 @@ struct wx_buf_chain_s {
     void (*cleanup)(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* out_bufc, int status);
 };
 
+typedef void (*wx_accept_cb)(struct wx_worker_s* wk, int revents);
+typedef struct wx_buf_s* (*wx_alloc_cb)(struct wx_conn_s* wx_conn, size_t suggested_size);
+typedef void (*wx_read_cb)(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, char* lastbase, ssize_t nread);
+
 struct wx_worker_s {
     struct ev_io accept_watcher;
+    struct ev_signal quit_watcher;
     struct ev_loop* loop;
     int listen_fd;
-    void (*accept_cb)(struct wx_worker_s* wk, int revents);
-    void* data;
+    wx_accept_cb accept_cb;
+    wx_alloc_cb alloc_cb;
+    wx_read_cb read_cb;
 };
 
 struct wx_timer_s {
@@ -59,24 +61,11 @@ void wx_conn_init(struct wx_worker_s* wk, struct wx_conn_s* wx_conn);
 void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* out_bufc);
 void wx_write_stop(struct wx_conn_s* wx_conn);
 
-void wx_read_start(
-        struct wx_conn_s* wx_conn,
-        int fd,
-        struct wx_buf_s* (*alloc_cb)(struct wx_conn_s* wx_conn, size_t suggested_size),
-        void (*read_cb)(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, char* lastbase, ssize_t nread)
-);
+void wx_read_start(struct wx_conn_s* wx_conn, int fd);
 void wx_read_stop(struct wx_conn_s* wx_conn);
 
-void wx_accept_start(struct wx_worker_s* wk, void (*accept_cb)(struct wx_worker_s* wk, int revents));
-void wx_accept_stop(struct wx_worker_s* wk);
-
-void wx_worker_init(int listen_fd, void* data, struct wx_worker_s* wk);
-
-int wx_worker_run(
-        struct wx_worker_s* wk,
-        void(*before_loop)(struct wx_worker_s* wk),
-        void(*after_loop)(struct wx_worker_s* wk)
-);
+void wx_worker_init(int listen_fd, struct wx_worker_s* wk, wx_accept_cb accept_cb, wx_alloc_cb alloc_cb, wx_read_cb read_cb);
+int wx_worker_run(struct wx_worker_s* wk);
 
 void wx_timer_init(struct wx_worker_s* wk, struct wx_timer_s* timer);
 void wx_timer_start(struct wx_timer_s* wx_timer, uint32_t timeout_ms, void (*timer_cb)(struct wx_timer_s* wx_timer));
