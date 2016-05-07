@@ -48,10 +48,11 @@ void cleanup_put_buf(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* obufchain
     conn->recvbuf.base = conn->bufchainwithbuf+sizeof(struct wx_buf_chain_s);
     conn->recvbuf.size = sizeof(conn->bufchainwithbuf) - sizeof(struct wx_buf_chain_s);
 
+    wx_timer_stop(&conn->close_timer); // 停止发送计时
+    // 开始等待下次新请求计时
     if (conn->keepalivems == 0) {
         connection_close(conn, 0);
     } else if (conn->keepalivems > 0) {
-        wx_timer_stop(&conn->close_timer);
         wx_timer_start(&conn->close_timer, (uint32_t)conn->keepalivems, timer_cb_close);
     }
 }
@@ -87,7 +88,8 @@ void do_line(struct connection_s* conn, const char* bufbase, size_t buflen) {
         size_t data_size = sizeof(conn->bufchainwithbuf) - sizeof(struct wx_buf_chain_s) - conn->recvbuf.size;
         conn->recvbuf.base = NULL;
         conn->recvbuf.size = 0;
-        wx_timer_stop(&conn->close_timer);//已接收到完整的请求，响应开始，关闭前面的接收超时器
+        wx_timer_stop(&conn->close_timer); // 已接收到完整的请求，响应开始，关闭前面的接收超时器
+        wx_timer_start(&conn->close_timer, 10000, timer_cb_close); // 开始发送计时，给你10秒钟时间接收数据
         do_request(conn, data_base, data_size);
     }
 }
@@ -106,8 +108,8 @@ void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, char* lastbase, ss
         return;
     }
 
-    wx_timer_stop(&conn->close_timer);
-    wx_timer_start(&conn->close_timer, 10000, timer_cb_close);//给你10秒钟，如果还不发送完一个请求老子不伺候了
+    wx_timer_stop(&conn->close_timer); // 停止上次等待新请求计时
+    wx_timer_start(&conn->close_timer, 10000, timer_cb_close); // 给你10秒钟，如果还不发送完一个请求老子不伺候了
 
     struct wx_buf_s data;
     data.base = conn->bufchainwithbuf + sizeof(struct wx_buf_chain_s);
