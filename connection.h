@@ -22,6 +22,7 @@ struct connection_s {
     char inuse:1;
 };
 
+#define connection_inuse(conn) ((conn)->inuse & 1)
 
 int connections_alloc(struct wx_worker_s* wk, uint32_t count);
 void connections_free();

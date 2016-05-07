@@ -25,14 +25,14 @@ struct wx_buf_s {
 struct wx_conn_s {
     struct ev_io rwatcher;
     struct ev_io wwatcher;
-    struct wx_buf_chain_s* out_bufc;
+    struct wx_buf_chain_s* obufchain;
     struct wx_worker_s* worker;
 };
 
 struct wx_buf_chain_s {
     struct wx_buf_s buf;
     struct wx_buf_chain_s* next;
-    void (*cleanup)(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* out_bufc, int status);
+    void (*cleanup)(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* obufchain, int status);
 };
 
 typedef void (*wx_accept_cb)(struct wx_worker_s* wk, int revents);
@@ -58,7 +58,7 @@ struct wx_timer_s {
 
 void wx_conn_init(struct wx_worker_s* wk, struct wx_conn_s* wx_conn);
 
-void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* out_bufc);
+void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* obufchain);
 void wx_write_stop(struct wx_conn_s* wx_conn);
 
 void wx_read_start(struct wx_conn_s* wx_conn, int fd);

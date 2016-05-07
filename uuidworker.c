@@ -16,7 +16,7 @@
 
 
 void connection_close(struct connection_s* conn, int status) {
-    if (conn->inuse & 1) {
+    if (connection_inuse(conn)) {
         if (wx_dummyfd_get() == -1) {
             wx_dummyfd_open();
         }
@@ -40,8 +40,8 @@ struct wx_buf_s* alloc_cb(struct wx_conn_s* wx_conn, size_t suggested) {
     return NULL;
 }
 
-void cleanup_put_buf(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* out_bufc, int status) {
-    out_bufc->cleanup = NULL;
+void cleanup_put_buf(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* obufchain, int status) {
+    obufchain->cleanup = NULL;
 
     struct connection_s* conn = (struct connection_s*)wx_conn;
 

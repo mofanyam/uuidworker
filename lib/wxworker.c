@@ -17,14 +17,14 @@ int wx_send_buf_chian(struct wx_conn_s* wx_conn, struct ev_io* wwatcher) {
     ssize_t nsent;
     int fd = wwatcher->fd;
     struct wx_buf_chain_s* tmp;
-    for (;wx_conn->out_bufc && ev_is_active(wwatcher);) {
-        nsent = wx_send_buf(fd, &wx_conn->out_bufc->buf);
+    for (;wx_conn->obufchain && ev_is_active(wwatcher);) {
+        nsent = wx_send_buf(fd, &wx_conn->obufchain->buf);
         if (nsent < 0) {
             if (errno == EAGAIN) {
                 errno = 0;
             } else {
-                tmp = wx_conn->out_bufc;
-                wx_conn->out_bufc = wx_conn->out_bufc->next;
+                tmp = wx_conn->obufchain;
+                wx_conn->obufchain = wx_conn->obufchain->next;
                 if (tmp->cleanup) {
                     tmp->next = NULL; // dont hurt the othor one!
                     tmp->cleanup(wx_conn, tmp, (int)nsent);
@@ -33,9 +33,9 @@ int wx_send_buf_chian(struct wx_conn_s* wx_conn, struct ev_io* wwatcher) {
             }
             break;
         }
-        if (wx_conn->out_bufc->buf.size == 0) {
-            tmp = wx_conn->out_bufc;
-            wx_conn->out_bufc = wx_conn->out_bufc->next;
+        if (wx_conn->obufchain->buf.size == 0) {
+            tmp = wx_conn->obufchain;
+            wx_conn->obufchain = wx_conn->obufchain->next;
             if (tmp->cleanup) {
                 tmp->next = NULL; // dont hurt the othor one!
                 tmp->cleanup(wx_conn, tmp, 0);
@@ -50,18 +50,18 @@ static inline void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
         wx_send_buf_chian(wx_conn, &wx_conn->wwatcher);
     }
 }
-void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* out_bufc) {
-    if (NULL == wx_conn->out_bufc) {
-        wx_conn->out_bufc = out_bufc;
+void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* obufchain) {
+    if (NULL == wx_conn->obufchain) {
+        wx_conn->obufchain = obufchain;
     } else {
-        struct wx_buf_chain_s* last, *pos = wx_conn->out_bufc;
+        struct wx_buf_chain_s* last, *pos = wx_conn->obufchain;
         for (last = pos; pos; pos = pos->next) {
             last = pos;
         }
-        last->next = out_bufc;
+        last->next = obufchain;
     }
 
-    if (0 == wx_send_buf_chian(wx_conn, &wx_conn->wwatcher) && wx_conn->out_bufc != NULL && !ev_is_active(&wx_conn->wwatcher)) {
+    if (0 == wx_send_buf_chian(wx_conn, &wx_conn->wwatcher) && wx_conn->obufchain != NULL && !ev_is_active(&wx_conn->wwatcher)) {
         ev_io_set(&wx_conn->wwatcher, fd, EV_WRITE);
         ev_io_start(wx_conn->worker->loop, &wx_conn->wwatcher);
     }
@@ -172,7 +172,7 @@ int wx_worker_run(struct wx_worker_s* wk) {
 }
 
 
-static inline void wx_comm_timer_cb(EV_P_ struct ev_timer* timer, int revents) {
+static inline void wx_do_timeout(EV_P_ struct ev_timer* timer, int revents) {
     struct wx_timer_s* wx_timer = (struct wx_timer_s*)timer;
     if (wx_timer->timer_cb) {
         wx_timer->timer_cb(wx_timer);
@@ -181,7 +181,7 @@ static inline void wx_comm_timer_cb(EV_P_ struct ev_timer* timer, int revents) {
 void wx_timer_init(struct wx_worker_s* wk, struct wx_timer_s* timer) {
     assert(wk->loop != NULL);
     timer->loop = wk->loop;
-    ev_init(&timer->ev_timer, wx_comm_timer_cb);
+    ev_init(&timer->ev_timer, wx_do_timeout);
 }
 void wx_timer_start(struct wx_timer_s* wx_timer, uint32_t timeout_ms, void (*timer_cb)(struct wx_timer_s* wx_timer)) {
     assert(timer_cb != NULL);
