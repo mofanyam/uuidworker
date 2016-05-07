@@ -20,7 +20,6 @@ int connections_alloc(struct wx_worker_s* wk, uint32_t count) {
 
     int i;
     for (i=0; i<count; i++) {
-        wx_timer_init(wk, &free_conns[i].close_timer);
         wx_conn_init(wk, &free_conns[i].wx_conn);
         free_conns[i].next = (i+1)<count ? &free_conns[i+1] : NULL;
     }
@@ -42,8 +41,6 @@ struct connection_s* connection_get() {
         tmp->inuse = 1;
         tmp->recvbuf.base = tmp->bufchainwithbuf + sizeof(struct wx_buf_chain_s);
         tmp->recvbuf.size = sizeof(tmp->bufchainwithbuf) - sizeof(struct wx_buf_chain_s);
-        tmp->sendbuf.base = NULL;
-        tmp->sendbuf.size = 0;
         tmp->keepalivems = 0; //默认完成一个请求之后立即关闭链接
     }
     return tmp;

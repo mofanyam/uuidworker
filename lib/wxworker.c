@@ -50,7 +50,7 @@ static inline void wx_do_write(EV_P_ struct ev_io* ww, int revents) {
         wx_send_buf_chian(wx_conn, &wx_conn->wwatcher);
     }
 }
-void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* obufchain) {
+void wx_conn_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* obufchain) {
     if (NULL == wx_conn->obufchain) {
         wx_conn->obufchain = obufchain;
     } else {
@@ -66,7 +66,7 @@ void wx_write_start(struct wx_conn_s* wx_conn, int fd, struct wx_buf_chain_s* ob
         ev_io_start(wx_conn->worker->loop, &wx_conn->wwatcher);
     }
 }
-void wx_write_stop(struct wx_conn_s* wx_conn) {
+void wx_conn_write_stop(struct wx_conn_s* wx_conn) {
     if (ev_is_active(&wx_conn->wwatcher)) {
         ev_io_stop(wx_conn->worker->loop, &wx_conn->wwatcher);
     }
@@ -102,22 +102,45 @@ static inline void wx_do_read(EV_P_ struct ev_io* rw, int revents) {
         }
     }
 }
-void wx_read_start(struct wx_conn_s* wx_conn, int fd) {
+void wx_conn_read_start(struct wx_conn_s* wx_conn, int fd) {
     if (!ev_is_active(&wx_conn->rwatcher)) {
         ev_io_set(&wx_conn->rwatcher, fd, EV_READ);
         ev_io_start(wx_conn->worker->loop, &wx_conn->rwatcher);
     }
 }
-void wx_read_stop(struct wx_conn_s* wx_conn) {
+void wx_conn_read_stop(struct wx_conn_s* wx_conn) {
     if (ev_is_active(&wx_conn->rwatcher)) {
         ev_io_stop(wx_conn->worker->loop, &wx_conn->rwatcher);
     }
 }
 
 
+void wx_do_close(struct ev_loop* loop, struct ev_timer* closetimer, int revents) {
+    struct wx_conn_s* wx_conn = container_of(closetimer, struct wx_conn_s, closetimer);
+    if (ev_is_active(&wx_conn->closetimer)) {
+        wx_conn->worker->closetimer_cb(wx_conn);
+    }
+}
+void wx_conn_closetimer_start(struct wx_conn_s* wx_conn, size_t timeout_ms) {
+    if (ev_is_active(&wx_conn->closetimer)) {
+        ev_timer_stop(wx_conn->worker->loop, &wx_conn->closetimer);
+    }
+    ev_timer_set(&wx_conn->closetimer, timeout_ms/1000.0, 0);
+    ev_timer_start(wx_conn->worker->loop, &wx_conn->closetimer);
+}
+void wx_conn_closetimer_stop(struct wx_conn_s* wx_conn) {
+    if (ev_is_active(&wx_conn->closetimer)) {
+        ev_timer_stop(wx_conn->worker->loop, &wx_conn->closetimer);
+    }
+}
+int wx_conn_closetimer_is_active(struct wx_conn_s* wx_conn) {
+    return ev_is_active(&wx_conn->closetimer);
+}
+
+
 static inline void wx_do_accept(EV_P_ struct ev_io* aw, int revents) {
     struct wx_worker_s* wk = container_of(aw, struct wx_worker_s, accept_watcher);
-    if (wk->accept_cb) {
+    if (ev_is_active(&wk->accept_watcher)) {
         wk->accept_cb(wk, revents);
     }
 }
@@ -130,7 +153,6 @@ void wx_accept_start(struct wx_worker_s* wk) {
 void wx_accept_stop(struct wx_worker_s* wk) {
     if (ev_is_active(&wk->accept_watcher)) {
         ev_io_stop(wk->loop, &wk->accept_watcher);
-        wk->accept_cb = NULL;
     }
 }
 
@@ -138,9 +160,17 @@ void wx_accept_stop(struct wx_worker_s* wk) {
 void wx_conn_init(struct wx_worker_s* wk, struct wx_conn_s* wx_conn) {
     ev_init(&wx_conn->rwatcher, wx_do_read);
     ev_init(&wx_conn->wwatcher, wx_do_write);
+    ev_init(&wx_conn->closetimer, wx_do_close);
     wx_conn->worker = wk;
 }
-void wx_worker_init(int listen_fd, struct wx_worker_s* wk, wx_accept_cb accept_cb, wx_alloc_cb alloc_cb, wx_read_cb read_cb) {
+void wx_worker_init(
+        int listen_fd
+        , struct wx_worker_s* wk
+        , wx_accept_cb accept_cb
+        , wx_alloc_cb alloc_cb
+        , wx_read_cb read_cb
+        , wx_closetimer_cb closetimer_cb
+) {
     assert(listen_fd > 0);
     ev_init(&wk->accept_watcher, wx_do_accept);
     wk->loop = ev_loop_new(EVBACKEND_EPOLL);
@@ -148,6 +178,7 @@ void wx_worker_init(int listen_fd, struct wx_worker_s* wk, wx_accept_cb accept_c
     wk->accept_cb = accept_cb;
     wk->alloc_cb = alloc_cb;
     wk->read_cb = read_cb;
+    wk->closetimer_cb = closetimer_cb;
 }
 
 
@@ -183,7 +214,7 @@ void wx_timer_init(struct wx_worker_s* wk, struct wx_timer_s* timer) {
     timer->loop = wk->loop;
     ev_init(&timer->ev_timer, wx_do_timeout);
 }
-void wx_timer_start(struct wx_timer_s* wx_timer, uint32_t timeout_ms, void (*timer_cb)(struct wx_timer_s* wx_timer)) {
+void wx_timer_start(struct wx_timer_s* wx_timer, size_t timeout_ms, void (*timer_cb)(struct wx_timer_s* wx_timer)) {
     assert(timer_cb != NULL);
     wx_timer->timer_cb = timer_cb;
     if (!ev_is_active(&wx_timer->ev_timer)) {

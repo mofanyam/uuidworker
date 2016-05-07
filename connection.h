@@ -13,9 +13,7 @@
 
 struct connection_s {
     struct wx_conn_s wx_conn;
-    struct wx_timer_s close_timer;
     struct wx_buf_s recvbuf;
-    struct wx_buf_s sendbuf;
     char bufchainwithbuf[sizeof(struct wx_buf_chain_s) + 128];
     struct connection_s* next;
     int keepalivems;
