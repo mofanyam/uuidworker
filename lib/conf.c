@@ -2,11 +2,7 @@
 // Created by mofan on 1/15/16.
 //
 
-#include <unistd.h>
-#include <fcntl.h>
-#include <string.h>
 #include "conf.h"
-#include "defs.h"
 
 
 

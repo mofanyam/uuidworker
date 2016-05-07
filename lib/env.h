@@ -6,6 +6,9 @@
 #define WXWORKER_ENV_H
 
 
+#include <stdlib.h>
+
+
 int wx_env_get_listen_fd();
 
 int wx_env_get_worker_id();
