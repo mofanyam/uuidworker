@@ -1,13 +1,9 @@
 //
-// Created by mofan on 2/1/16.
+// Created by renwuxun on 2/1/16.
 //
 
-#include <sys/time.h>
-#include <stdlib.h>
-#include <string.h>
+
 #include "uuid.h"
-#include "lib/conf.h"
-#include "lib/defs.h"
 
 
 static struct uuid_s uuid_last = {0};

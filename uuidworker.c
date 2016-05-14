@@ -1,148 +1,87 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <sys/socket.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <errno.h>
 #include <netinet/tcp.h>
-#include "lib/wxworker.h"
-#include "connection.h"
-#include "uuid.h"
-#include "lib/conf.h"
-#include "lib/dummyfd.h"
-#include "lib/env.h"
 //#include <gperftools/profiler.h>
+#include "conn.h"
+#include "lib/env.h"
+#include "lib/dummyfd.h"
+#include "uuid.h"
 
 
 
-void connection_close(struct connection_s* conn, int status) {
-    if (connection_inuse(conn)) {
-        if (wx_dummyfd_get() == -1) {
-            wx_dummyfd_open();
-        }
-        struct wx_conn_s* wx_conn = &conn->wx_conn;
-        wx_conn_closetimer_stop(wx_conn);
-        wx_conn_read_stop(wx_conn);
-        wx_conn_write_stop(wx_conn);
-        connection_put(conn);
-    }
+struct wx_buf_s* alloc_cb(struct wx_conn_s* wx_conn) {
+    struct conn_s* conn = container_of(wx_conn, struct conn_s, wx_conn);
+    return conn->buf;
 }
 
-void closetimer_cb(struct wx_conn_s* wx_conn) {
-    struct connection_s* conn = container_of(wx_conn, struct connection_s, wx_conn);
-    connection_close(conn, -10);
+void conn_close(struct conn_s* conn) {
+    wx_timer_stop(&conn->closetimer);
+    wx_conn_close(&conn->wx_conn);
+    conn_put(conn);
 }
 
-struct wx_buf_s* alloc_cb(struct wx_conn_s* wx_conn, size_t suggested) {
-    struct connection_s* conn = (struct connection_s*)wx_conn;
-    struct wx_buf_s* buf = &conn->recvbuf;
-    if (buf->size>0 && buf->base!=NULL) {
-        return buf;
-    }
-    return NULL;
+void closetimer_cb(struct wx_timer_s* closetimer) {
+    struct conn_s* conn = container_of(closetimer, struct conn_s, closetimer);
+    conn_close(conn);
 }
 
-void cleanup_buf_chain(struct wx_conn_s* wx_conn, struct wx_buf_chain_s* obufchain, int status) {
-    obufchain->cleanup = NULL;
+void cleanup_cb(struct wx_buf_chain_s* bufchain, ssize_t n, void* arg) {
+    struct conn_s* conn = (struct conn_s*)arg;
 
-    struct connection_s* conn = (struct connection_s*)wx_conn;
+    conn->buf = (struct wx_buf_s*)conn->data;
+    conn->buf->base = conn->buf->data;
+    conn->buf->size = sizeof(conn->data) - sizeof(struct wx_buf_s);
 
-    // start recv again
-    conn->recvbuf.base = conn->bufchainwithbuf+sizeof(struct wx_buf_chain_s);
-    conn->recvbuf.size = sizeof(conn->bufchainwithbuf) - sizeof(struct wx_buf_chain_s);
-
-    wx_conn_closetimer_stop(&conn->wx_conn); // 停止发送计时
-    // 开始等待下次新请求计时
     if (conn->keepalivems == 0) {
-        connection_close(conn, 0);
-    } else if (conn->keepalivems > 0) {
-        wx_conn_closetimer_start(&conn->wx_conn, (size_t)conn->keepalivems);
+        conn_close(conn);
+    } else {
+        wx_timer_start(&conn->closetimer, (size_t)conn->keepalivems, closetimer_cb);
     }
 }
 
-static inline void do_request(struct connection_s* conn, const char* data_base, size_t data_size) {
-    struct wx_buf_chain_s* bc = (struct wx_buf_chain_s*)(data_base - sizeof(struct wx_buf_chain_s));
-    wx_buf_chain_init(bc, cleanup_buf_chain);
+int read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t n) {
+    struct conn_s* conn = container_of(wx_conn, struct conn_s, wx_conn);
 
-    uint64_t uuid = uuid_create();//
+    if (n == 0 && buf->size!=0) {
+        conn_close(conn);
+        return 0;
+    }
 
-    bc->buf.size = (size_t)sprintf(bc->buf.base, "%llu\n", uuid);
+    wx_timer_stop(&conn->closetimer);
 
-    wx_conn_write_start(&conn->wx_conn, conn->wx_conn.rwatcher.fd, bc);
-}
-
-static inline int find_char(char* ptr, size_t size, char c) {
-    int i;
-    for (i=0; i<size; i++) {
-        if (ptr[i] == c) {
-            return i;
+    if (strstr(buf->data, "\r\n\r\n")) {
+        if (strstr(buf->data, "HTTP/1.1\r\n")) {
+            conn->keepalivems = 15000;
         }
+
+        conn->buf = NULL;
+
+        struct wx_buf_chain_s* bc = (struct wx_buf_chain_s*)conn->data;
+        bc->base = bc->data;
+        bc->size = sizeof(conn->data) - sizeof(bc);
+        bc->cleanup = cleanup_cb;
+        bc->arg = conn;
+        bc->next = NULL;
+
+        uint64_t uuid = uuid_create();
+
+        bc->size = (size_t)sprintf(bc->base, "HTTP/1.1 200 OK\r\nContent-Length: 20\r\n\r\n%llu\n", uuid);
+
+        wx_conn_write_start(wx_conn, wx_conn->rwatcher.fd, bc);
     }
-    return -1;
+
+    if (buf->size == 0) {
+        conn->buf = NULL;
+        wx_err("header buffer overflow");
+        conn_close(conn);
+        return EXIT_FAILURE;
+    }
+
+    return 0;
 }
 
-void do_line(struct connection_s* conn, const char* bufbase, size_t buflen) {
-    if (buflen > 11 && 0 == strncasecmp(bufbase, "keep-alive:", 11)) {
-        conn->keepalivems = atoi(bufbase+11);
-    }
-
-    if (0 == strncmp(bufbase, "\r\n", 2)) {
-        char* data_base = conn->bufchainwithbuf+sizeof(struct wx_buf_chain_s);
-        size_t data_size = sizeof(conn->bufchainwithbuf) - sizeof(struct wx_buf_chain_s) - conn->recvbuf.size;
-        // temporary stop recv
-        conn->recvbuf.base = NULL;
-        conn->recvbuf.size = 0;
-        wx_conn_closetimer_start(&conn->wx_conn, 10000); // 已接收到完整的请，关闭前面的接收超时器，开始发送计时，给你10秒钟时间接收数据
-        do_request(conn, data_base, data_size);
-    }
-}
-
-void read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, char* lastbase, ssize_t nread) {
-    struct connection_s* conn = (struct connection_s*)wx_conn;
-    if (nread < 0) {
-        if (errno == EAGAIN) {
-            errno = 0;
-        } else {
-            connection_close(conn, nread);
-        }
-        return;
-    } else if (nread==0) {
-        connection_close(conn, 0);
-        return;
-    }
-
-    wx_conn_closetimer_start(&conn->wx_conn, 10000);  // 停止上次等待新请求计时，给你10秒钟，如果还不发送完一个请求老子不伺候了
-
-    struct wx_buf_s data;
-    data.base = conn->bufchainwithbuf + sizeof(struct wx_buf_chain_s);
-    data.size = sizeof(conn->bufchainwithbuf) - sizeof(struct wx_buf_chain_s) - buf->size;
-
-    struct wx_buf_s rnrn = {.base="\r\n\r\n", .size=4};
-
-    if (data.size > 3 && 0 < wx_buf_strstr(&data, &rnrn)) {
-        int lastlnpos;
-        char* data_base = data.base;
-        size_t data_size = data.size;
-        for (;;) {
-            lastlnpos = find_char(data_base, data_size, '\n');
-            if (lastlnpos == -1) {
-                break;
-            }
-            lastlnpos++;
-            do_line(conn, data_base, (size_t)lastlnpos);
-            data_base += lastlnpos;
-            data_size -= lastlnpos;
-        }
-    } else if (buf->size == 0) {
-        connection_close(conn, -12); // buffer overflow
-        wx_err("recv buffer overflow");
-    }
-}
-
-void accept_cb(struct wx_worker_s* wk, int revents) {
-    struct connection_s* conn = connection_get();
-    if (!conn) {
-        wx_err("no more free connections");
+void accept_cb(struct wx_worker_s* wk) {
+    struct conn_s* conn = conn_get();
+    if (conn ==  NULL) {
+        wx_err("no more free connction");
         return;
     }
 
@@ -157,7 +96,7 @@ void accept_cb(struct wx_worker_s* wk, int revents) {
                 } else {
                     wx_err("accept");
                 }
-                connection_put(conn);
+                conn_put(conn);
                 return;
             }
         } else {
@@ -166,7 +105,7 @@ void accept_cb(struct wx_worker_s* wk, int revents) {
             } else {
                 wx_err("accept");
             }
-            connection_put(conn);
+            conn_put(conn);
             return;
         }
     }
@@ -174,18 +113,21 @@ void accept_cb(struct wx_worker_s* wk, int revents) {
     int p = fcntl(cfd, F_GETFL);
     if (-1 == p || -1 == fcntl(cfd, F_SETFL, p|O_NONBLOCK)) {
         wx_err("fcntl");
-        connection_put(conn);
+        conn_put(conn);
         return;
     }
 
     int one = 1;
     setsockopt(cfd, SOL_TCP, TCP_NODELAY, &one, sizeof(one));
 
+    conn->buf = (struct wx_buf_s*)conn->data;
+    conn->buf->base = conn->buf->data;
+    conn->buf->size = sizeof(conn->data) - sizeof(struct wx_buf_s);
     wx_conn_read_start(&conn->wx_conn, cfd);
 }
 
-
 int main(int argc, char** argv) {
+
     int listen_fd = wx_env_get_listen_fd();
     if (listen_fd < 0) {
         wx_err("listen_fd < 0");
@@ -212,32 +154,30 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
-    char connection_buf[32]={0};
-    size_t connection = 1024;
-    if (0 == wx_conf_get("connection", connection_buf, sizeof(connection_buf))) {
-        connection = (size_t)atoi(connection_buf);
+    char buf32[32]={0};
+    size_t connections = 1024;
+    if (0 == wx_conf_get("connection", buf32, sizeof(buf32))) {
+        connections = (size_t)atoi(buf32);
     }
-
-    struct wx_worker_s worker;
-    wx_worker_init(listen_fd, &worker, accept_cb, alloc_cb, read_cb, closetimer_cb);
-
-    if (0 != connections_alloc(&worker, (uint32_t)connection)) {
-        wx_err("connections_alloc");
+    if (0 != conns_alloc(connections)) {
+        wx_err("conns_alloc");
         return EXIT_FAILURE;
     }
 
     wx_dummyfd_open();
 
-    int r = wx_worker_run(&worker);
+    wx_worker_init(listen_fd, accept_cb, alloc_cb, read_cb);
+    int r = wx_worker_run();
 
-    wx_err("worker stop");
-
-    connections_free();
     if (-1 != wx_dummyfd_get()) {
         wx_dummyfd_close();
     }
 
+    conns_free();
+
 //    ProfilerStop();
+
+    wx_err("worker stop");
 
     return r;
 }

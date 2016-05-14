@@ -16,5 +16,5 @@ uuid生成器
 
 配置：
 	文件：uuidworker.conf
-	如果启动n个进程，则需要配置n个gpid，英文逗号分开，gpid取值[0,1023]
-	connection=n 设置每个进程最多同时处理n个链接
+	1、如果有n个进程（根据cpu核心而定），则需要配置n个gpid，英文逗号分开，gpid取值[0,1023]
+	2、connection=n 设置每个进程最多同时处理n个链接

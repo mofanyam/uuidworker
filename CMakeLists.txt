@@ -11,7 +11,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -Wall")
 add_subdirectory(lib)
 
 
-add_executable(uuidworker uuidworker.c connection.c uuid.c)
+add_executable(uuidworker uuidworker.c conn.c uuid.c)
 
 target_link_libraries(uuidworker wxworker)
 #target_link_libraries(uuidworker wxworker profiler)

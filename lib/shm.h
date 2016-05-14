@@ -1,5 +1,5 @@
 //
-// Created by mofan on 4/30/16.
+// Created by renwuxun on 4/30/16.
 //
 
 #ifndef WXWORKER_SHM_H
