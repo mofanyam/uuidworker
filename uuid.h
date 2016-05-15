@@ -12,7 +12,7 @@
 #include <sys/time.h>
 #include <stdlib.h>
 #include "uuid.h"
-#include "lib/conf.h"
+#include "wxworker/conf.h"
 
 
 struct uuid_s {

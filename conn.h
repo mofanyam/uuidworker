@@ -8,7 +8,7 @@
 
 
 #include <stdlib.h>
-#include "lib/wxworker.h"
+#include "wxworker/wxworker.h"
 
 struct conn_s {
     struct wx_conn_s wx_conn;

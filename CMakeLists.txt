@@ -8,7 +8,7 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -Wall")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -Wall")
 
 
-add_subdirectory(lib)
+add_subdirectory(wxworker)
 
 
 add_executable(uuidworker uuidworker.c conn.c uuid.c)

@@ -1,8 +1,8 @@
 #include <netinet/tcp.h>
 //#include <gperftools/profiler.h>
 #include "conn.h"
-#include "lib/env.h"
-#include "lib/dummyfd.h"
+#include "wxworker/env.h"
+#include "wxworker/dummyfd.h"
 #include "uuid.h"
 
 
@@ -63,7 +63,13 @@ int read_cb(struct wx_conn_s* wx_conn, struct wx_buf_s* buf, ssize_t n) {
 
         uint64_t uuid = uuid_create();
 
-        bc->size = (size_t)sprintf(bc->base, "HTTP/1.1 200 OK\r\nContent-Length: 20\r\n\r\n%llu\n", uuid);
+        int prot = 1;
+        char connection[]="keep-alive";
+        if (conn->keepalivems == 0) {
+            prot = 0;
+            sprintf(connection, "close");
+        }
+        bc->size = (size_t)sprintf(bc->base, "HTTP/1.%d 200 OK\r\nContent-Length: 20\r\nConnection: %s\r\n\r\n%llu\n", prot, connection, uuid);
 
         wx_conn_write_start(wx_conn, wx_conn->rwatcher.fd, bc);
     }
