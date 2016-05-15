@@ -5,6 +5,8 @@
 #include "conn.h"
 
 
+static struct conn_s* free_conns = NULL;
+static struct conn_s* _free_conns = NULL;
 
 int conns_alloc(size_t count) {
     if (!_free_conns) {

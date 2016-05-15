@@ -20,8 +20,6 @@ struct conn_s {
     char data[128];
 };
 
-static struct conn_s* free_conns = NULL;
-static struct conn_s* _free_conns = NULL;
 
 int conns_alloc(size_t count);
 void conns_free();
