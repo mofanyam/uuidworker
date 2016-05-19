@@ -2,7 +2,6 @@
 //#include <gperftools/profiler.h>
 #include "conn.h"
 #include "wxworker/env.h"
-#include "wxworker/dummyfd.h"
 #include "uuid.h"
 
 
@@ -91,29 +90,10 @@ void accept_cb(struct wx_worker_s* wk) {
         return;
     }
 
-    int cfd = accept(wk->listen_fd, NULL, 0);
+    int cfd = wx_accept(wk->listen_fd, NULL, 0);
     if (cfd < 0) {
-        if (errno == EMFILE && wx_dummyfd_get() != -1 && 0 == wx_dummyfd_close()) {
-            cfd = accept(wk->listen_fd, NULL, 0);
-            if (cfd < 0) {
-                wx_dummyfd_open();
-                if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                    errno = 0; //reset it
-                } else {
-                    wx_err("accept");
-                }
-                conn_put(conn);
-                return;
-            }
-        } else {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                errno = 0; //reset it
-            } else {
-                wx_err("accept");
-            }
-            conn_put(conn);
-            return;
-        }
+        conn_put(conn);
+        return;
     }
 
     int p = fcntl(cfd, F_GETFL);
@@ -170,14 +150,8 @@ int main(int argc, char** argv) {
         return EXIT_FAILURE;
     }
 
-    wx_dummyfd_open();
-
     wx_worker_init(listen_fd, accept_cb, alloc_cb, read_cb);
     int r = wx_worker_run();
-
-    if (-1 != wx_dummyfd_get()) {
-        wx_dummyfd_close();
-    }
 
     conns_free();
 
