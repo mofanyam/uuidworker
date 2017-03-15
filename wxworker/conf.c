@@ -60,8 +60,9 @@ int wx_conf_init() {
 
 int wx_conf_get(const char* key, char* buf, size_t bufsize) {
     if (wx_confstr[0] == 0) {
-        wx_err("you must call wx_conf_init() before wx_getconf()", key, wx_conffile);
-        return -1;
+        if (0 != wx_conf_init()) {
+            return -1;
+        }
     }
     if (1 != wx_getconf(wx_confstr, key, buf, bufsize)) {
         return -1;

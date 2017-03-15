@@ -134,6 +134,30 @@ static inline void wx_do_accept(struct ev_loop* loop, struct ev_io* accept_watch
     wx_worker.accept_cb(&wx_worker);
 }
 
+int wx_accept(int listen_fd, __SOCKADDR_ARG __addr, socklen_t* __restrict __addr_len) {
+    int client_fd = accept(listen_fd, __addr, __addr_len);
+    if (client_fd < 0) {
+        if (errno == EMFILE && wx_dummyfd_get() != -1 && 0 == wx_dummyfd_close()) {
+            client_fd = accept(listen_fd, __addr, __addr_len);
+            if (client_fd < 0) {
+                wx_dummyfd_open();
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    errno = 0; //reset it
+                } else {
+                    wx_err("accept");
+                }
+            }
+        } else {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                errno = 0; //reset it
+            } else {
+                wx_err("accept");
+            }
+        }
+    }
+    return client_fd;
+}
+
 int wx_worker_run() {
     wx_worker.loop = ev_loop_new(EVBACKEND_EPOLL);
 
@@ -143,8 +167,14 @@ int wx_worker_run() {
     ev_io_init(&wx_worker.accept_watcher, wx_do_accept, wx_worker.listen_fd, EV_READ);
     ev_io_start(wx_worker.loop, &wx_worker.accept_watcher);
 
+    wx_dummyfd_open();
+
     int r = ev_run(wx_worker.loop, 0);
     ev_loop_destroy(wx_worker.loop);
+
+    if (-1 != wx_dummyfd_get()) {
+        wx_dummyfd_close();
+    }
 
     return r;
 }

@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <errno.h>
 #include "defs.h"
+#include "dummyfd.h"
 
 
 
@@ -82,6 +83,8 @@ void wx_conn_init(struct wx_conn_s* wx_conn);
 void wx_conn_close(struct wx_conn_s* wx_conn);
 
 void wx_worker_init(int fd, wx_accept_cb accept_cb, wx_alloc_cb alloc_cb, wx_read_cb read_cb);
+
+int wx_accept(int listen_fd, __SOCKADDR_ARG __addr, socklen_t* __restrict __addr_len);
 
 int wx_worker_run();
 
