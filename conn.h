@@ -17,7 +17,7 @@ struct conn_s {
     struct conn_s* next;
     char inuse:1;
     struct wx_buf_s* buf;
-    char data[128];
+    char data[320];
 };
 
 
