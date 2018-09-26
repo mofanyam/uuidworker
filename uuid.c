@@ -53,20 +53,20 @@ int uuid_get_gpid() {
 
 uint64_t uuid_create() {
     struct uuid_s uuid;
-    uuid.gpid = (uint64_t)uuid_gpid; // max = (1<<10)-1 = 1023
+    uuid.gpid = (uint64_t)uuid_gpid;
     uuid.count = 1;
 
     struct timeval tv;
     gettimeofday(&tv, 0);
-    uuid.ms = tv.tv_sec*1000 + tv.tv_usec/1000;
+    uuid.ms = (uint64_t)(tv.tv_sec*1000 + tv.tv_usec/1000) - 1491696000000;
 
     if (uuid.ms == uuid_last.ms) {
-        uuid.count = uuid_last.count + 1; // max = (1<<14)-1 = 16383
+        uuid.count = uuid_last.count + 1;
     }
 
     uuid_last = uuid;
 
-    uint64_t r = uuid.ms<<22 | uuid.count<<9 | uuid.gpid;
+    uint64_t r = uuid.ms<<22 | uuid.gpid<<12 | uuid.count<<9;
 
     return r;
 }
